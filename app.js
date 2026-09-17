@@ -30,7 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // 1. Инициализация карты Leaflet
 function initMap() {
-  // Центр между Карагандой и Иссык-Кулем
   map = L.map('map', {
     zoomControl: false
   }).setView([45.5, 76.5], 6);
@@ -38,15 +37,55 @@ function initMap() {
   // Контрол зума в правом верхнем углу
   L.control.zoom({ position: 'topright' }).addTo(map);
 
-  // Красивые и четкие тайлы CartoDB Voyager
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
+  // 1. Детальная карта дорог OpenStreetMap (Без водяных знаков и без API ключей)
+  const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19
-  }).addTo(map);
+  });
+
+  // 2. Топографическая карта Esri (Горы, перевалы и рельеф)
+  const esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Esri, USGS',
+    maxZoom: 18
+  });
+
+  // 3. Реальный спутник Esri World Imagery (Озёра, ледники и каньоны)
+  const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+    maxZoom: 18
+  });
+
+  // Добавляем слой дорог по умолчанию
+  osmStandard.addTo(map);
+
+  // Переключатель слоёв карты
+  const baseLayers = {
+    "🗺️ Дороги (OSM)": osmStandard,
+    "🏔️ Горы (Рельеф)": esriTopo,
+    "🛰️ Спутник (Космос)": esriSatellite
+  };
+  L.control.layers(baseLayers, null, { position: 'topright', collapsed: true }).addTo(map);
 
   // Отрисовка всех дней маршрута
   renderAllRoutes();
+
+  // Автоматический пересчёт размеров карты для корректного масштаба на мобильных
+  setTimeout(() => {
+    if (map) {
+      map.invalidateSize();
+      const allBounds = L.latLngBounds();
+      TRIP_DATA.days.forEach(day => {
+        day.route_points.forEach(pt => allBounds.extend(pt));
+      });
+      if (allBounds.isValid()) {
+        map.fitBounds(allBounds, { padding: [25, 25] });
+      }
+    }
+  }, 300);
+
+  window.addEventListener('resize', () => {
+    if (map) map.invalidateSize();
+  });
 
   // Клик по карте для добавления пользовательской точки
   map.on('click', (e) => {
@@ -1084,6 +1123,19 @@ function handleAuthSubmit(e) {
 
     updateHeaderUserBadge();
     showToast(`Привет, ${name}! Добро пожаловать в Пу-пу-путешествие! 🚗💨`, 'success');
+
+    setTimeout(() => {
+      if (map) {
+        map.invalidateSize();
+        const allBounds = L.latLngBounds();
+        TRIP_DATA.days.forEach(day => {
+          day.route_points.forEach(pt => allBounds.extend(pt));
+        });
+        if (allBounds.isValid()) {
+          map.fitBounds(allBounds, { padding: [25, 25] });
+        }
+      }
+    }, 150);
   } else {
     if (err) {
       err.textContent = 'Неверное кодовое слово! Спросите у Ромы 😉';
