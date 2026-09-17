@@ -64,7 +64,7 @@ function downloadGPXFile(tripData, communityPoints) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'TianShan_RoadTrip_Karaganda_Almaty_IssykKul.gpx';
+  a.download = 'Pu_pu_puteshestvie_2026.gpx';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
