@@ -10,6 +10,12 @@ import socket
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
+# Защита от ошибок кодировки в консоли Windows
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 PORT = 5050
 DATA_FILE = Path(__file__).parent / "community_points.json"
 
@@ -118,7 +124,7 @@ class RoadTripHandler(SimpleHTTPRequestHandler):
                 points = load_points()
 
                 # Проверка: обновление существующей или добавление новой
-                existing_idx = next((i for i, p in enumerate(points) if p["id"] == new_point.get("id")), None)
+                existing_idx = next((i for i, p in enumerate(points) if p.get("id") == new_point.get("id")), None)
                 if existing_idx is not None:
                     points[existing_idx] = new_point
                 else:
@@ -132,7 +138,7 @@ class RoadTripHandler(SimpleHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(res)))
                 self.end_headers()
                 self.wfile.write(res)
-                print(f"[SYNC] Точка добавлена/обновлена: {new_point.get('title')} от {new_point.get('author')}")
+                print(f"[SYNC] Точка сохранена: {new_point.get('title')} от {new_point.get('author')}")
             except Exception as e:
                 self.send_response(400)
                 self.end_headers()
@@ -148,7 +154,7 @@ class RoadTripHandler(SimpleHTTPRequestHandler):
                 points = load_points()
                 updated_likes = 0
                 for p in points:
-                    if p["id"] == target_id:
+                    if p.get("id") == target_id:
                         p["likes"] = p.get("likes", 0) + 1
                         updated_likes = p["likes"]
                         break
@@ -176,19 +182,19 @@ def main():
     httpd = HTTPServer(server_address, RoadTripHandler)
 
     print("=" * 65)
-    print(" 🚗  TIAN SHAN ROAD TRIP PLANNER — СЕРВЕР ЗАПУЩЕН")
+    print(" >>> TIAN SHAN ROAD TRIP PLANNER SERVER STARTED <<<")
     print("=" * 65)
-    print(f" • Локально на ПК:      http://localhost:{PORT}")
-    print(f" • Для друзей в Wi-Fi:  http://{local_ip}:{PORT}")
-    print(" • Экспорт GPX:        доступен кнопкой в верхнем меню")
-    print(" • Совместные точки:    синхронизируются в community_points.json")
+    print(f" * Local PC:        http://localhost:{PORT}")
+    print(f" * Friends Wi-Fi:   http://{local_ip}:{PORT}")
+    print(" * GPX Export:      available in top navigation bar")
+    print(" * Community POIs:  synced to community_points.json")
     print("=" * 65)
-    print(" Для остановки нажмите Ctrl+C\n")
+    print(" Press Ctrl+C to stop the server\n")
 
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nСервер остановлен.")
+        print("\nServer stopped.")
         httpd.server_close()
 
 if __name__ == "__main__":
