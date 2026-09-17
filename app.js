@@ -1712,10 +1712,10 @@ let chatMessages = [];
 const DEFAULT_CHAT_MESSAGES = [
   {
     id: 'msg_karkyra_border',
-    author: 'Влад',
+    author: 'Илья',
     text: 'Ребят, не уверен насчет пересечения границы с восточной стороны через КПП Каркыра. Кто знает точные часы работы и проедем ли мы там?',
     timestamp: Date.now() - 1000 * 60 * 35,
-    reactions: { '👍': ['Илья'], '⚠️': ['Рома'] },
+    reactions: { '👍': ['Влад'], '⚠️': ['Рома'] },
     systemAnswer: '📌 Справка из Памятки: КПП Каркыра (Казахстан — Кыргызстан) работает только в светлое время суток (обычно 08:30–18:00, с мая по октябрь). Дорога — 60 км накатанной сухой гравийки, любой седан спокойно проходит на скорости 40–50 км/ч. После дождей комфортнее на авто с клиренсом от 17 см.'
   }
 ];
@@ -1731,6 +1731,15 @@ function setupChatFirebaseSync() {
         } else {
           chatMessages = Object.keys(val).map(k => ({ id: k, ...val[k] }));
         }
+        // Коррекция автора стартового вопроса
+        chatMessages.forEach(m => {
+          if (m.id === 'msg_karkyra_border' && m.author === 'Влад') {
+            m.author = 'Илья';
+            if (m.reactions && m.reactions['👍'] && m.reactions['👍'].includes('Илья')) {
+              m.reactions['👍'] = m.reactions['👍'].map(x => x === 'Илья' ? 'Влад' : x);
+            }
+          }
+        });
         chatMessages.sort((a, b) => a.timestamp - b.timestamp);
       } else {
         chatMessages = [...DEFAULT_CHAT_MESSAGES];
@@ -1745,6 +1754,14 @@ function setupChatFirebaseSync() {
     if (saved) {
       try {
         chatMessages = JSON.parse(saved);
+        chatMessages.forEach(m => {
+          if (m.id === 'msg_karkyra_border' && m.author === 'Влад') {
+            m.author = 'Илья';
+            if (m.reactions && m.reactions['👍'] && m.reactions['👍'].includes('Илья')) {
+              m.reactions['👍'] = m.reactions['👍'].map(x => x === 'Илья' ? 'Влад' : x);
+            }
+          }
+        });
       } catch (e) {
         chatMessages = [...DEFAULT_CHAT_MESSAGES];
       }
