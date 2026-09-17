@@ -1,9 +1,9 @@
-﻿# PROJECT STATUS: TianShan RoadTrip Planner
+# PROJECT STATUS: TianShan RoadTrip Planner
 
 ## 1. Active Phase
 - **Phase:** Live in Production (Deployed)
 - **Date:** 2026-09-17
-- **Version:** v1.1.0
+- **Version:** v1.2.0
 - **Production URL:** https://fromych1.github.io/tianshan-trip/
 - **Cloud Database:** Firebase Realtime Database (`pupupu-d3289`, Belgium `europe-west1`)
 
@@ -18,7 +18,11 @@
 - [x] Google Maps navigation links for every stop and friend proposal.
 - [x] Driver Handbook modal with border crossing details, insurance, SIM cards, currency.
 - [x] Automated repository creation (`fromych1/tianshan-trip`) and GitHub Pages deployment.
+- [x] Purged all AI slop (overblown brochure adjectives) across all 14 days; replaced with clear driver notes.
+- [x] Removed all dummy mock seeds; live Firebase DB starts completely clean for real friend submissions.
+- [x] Added gatekeeper passcode lock screen (`пупупу` / `pupupu`) with persistent auth and logout button.
 
 ## 3. Verification
 - Live URL HTTP Status: 200 OK
-- Firebase Database: Connected and verified with live seed reads/writes
+- Firebase Database: Connected and verified clean
+- Syntax & Build: Verified via node -c and py_compile

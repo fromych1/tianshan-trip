@@ -19,55 +19,18 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 PORT = 5050
 DATA_FILE = Path(__file__).parent / "community_points.json"
 
-DEFAULT_SEEDS = [
-    {
-        "id": "seed_1",
-        "title": "Форелевое хозяйство с беседками над водой",
-        "category": "food",
-        "author": "Алексей",
-        "note": "В Григорьевском ущелье. Вылавливают живую рыбу и жарят при вас на садже. Очень сочно!",
-        "lat": 42.742,
-        "lng": 77.468,
-        "day": 7,
-        "likes": 4,
-        "created_at": "2026-09-17"
-    },
-    {
-        "id": "seed_2",
-        "title": "Смотровая на закат над лабиринтом Сказки",
-        "category": "photo",
-        "author": "Алина",
-        "note": "Если подняться на хребет чуть правее входа в каньон, видно и красные скалы, и бирюзовый Иссык-Куль!",
-        "lat": 42.161,
-        "lng": 77.362,
-        "day": 10,
-        "likes": 6,
-        "created_at": "2026-09-17"
-    },
-    {
-        "id": "seed_3",
-        "title": "Глэмпинг на диком южном берегу",
-        "category": "hotel",
-        "author": "Данияр",
-        "note": "Теплые юрты со стеклянным куполом прямо на песчаном пляже возле Боконбаево. Видно звезды!",
-        "lat": 42.125,
-        "lng": 77.012,
-        "day": 10,
-        "likes": 5,
-        "created_at": "2026-09-17"
-    }
-]
+DEFAULT_SEEDS = []
 
 def load_points():
     if not DATA_FILE.exists():
-        save_points(DEFAULT_SEEDS)
-        return DEFAULT_SEEDS
+        save_points([])
+        return []
     try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"[WARN] Ошибка чтения {DATA_FILE}: {e}")
-        return DEFAULT_SEEDS
+        return []
 
 def save_points(points):
     try:

@@ -14,6 +14,7 @@ let firebaseDb = null;
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', async () => {
+  checkAuthGate();
   initMap();
   await loadCommunityPoints();
   renderDaysNavigation();
@@ -341,53 +342,6 @@ function initFirebaseIfAvailable() {
   return false;
 }
 
-const DEFAULT_COMMUNITY_SEEDS = [
-  {
-    id: 'seed_1',
-    title: 'Форелевое хозяйство с беседками над водой',
-    category: 'food',
-    author: 'Алексей',
-    note: 'В Григорьевском ущелье. Вылавливают живую рыбу и жарят при вас на садже. Очень сочно!',
-    lat: 42.742,
-    lng: 77.468,
-    day: 7,
-    likes: 4,
-    created_at: '2026-09-17'
-  },
-  {
-    id: 'seed_2',
-    title: 'Смотровая на закат над лабиринтом Сказки',
-    category: 'photo',
-    author: 'Алина',
-    note: 'Если подняться на хребет чуть правее входа в каньон, видно и красные скалы, и бирюзовый Иссык-Куль!',
-    lat: 42.161,
-    lng: 77.362,
-    day: 10,
-    likes: 6,
-    created_at: '2026-09-17'
-  },
-  {
-    id: 'seed_3',
-    title: 'Глэмпинг на диком южном берегу',
-    category: 'hotel',
-    author: 'Данияр',
-    note: 'Теплые юрты со стеклянным куполом прямо на песчаном пляже возле Боконбаево. Видно звезды!',
-    lat: 42.125,
-    lng: 77.012,
-    day: 10,
-    likes: 5,
-    created_at: '2026-09-17'
-  }
-];
-
-function seedDefaultPointsToFirebase(pointsRef) {
-  const updates = {};
-  DEFAULT_COMMUNITY_SEEDS.forEach(s => {
-    updates[s.id] = s;
-  });
-  pointsRef.set(updates);
-}
-
 async function loadCommunityPoints() {
   // 1. Попытка подключения к облачной базе Firebase Realtime Database
   if (initFirebaseIfAvailable() && firebaseDb) {
@@ -403,9 +357,7 @@ async function loadCommunityPoints() {
           communityPoints = Object.values(val);
         }
       } else {
-        // Если база пустая, загружаем базовые точки
-        seedDefaultPointsToFirebase(pointsRef);
-        communityPoints = [...DEFAULT_COMMUNITY_SEEDS];
+        communityPoints = [];
       }
       localStorage.setItem('tianshan_community_points', JSON.stringify(communityPoints));
       renderCommunityMarkersOnMap();
@@ -420,9 +372,12 @@ async function loadCommunityPoints() {
     const res = await fetch('/api/points', { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         communityPoints = data;
         localStorage.setItem('tianshan_community_points', JSON.stringify(communityPoints));
+        renderCommunityMarkersOnMap();
+        renderCommunityList();
+        updateStats();
         return;
       }
     }
@@ -438,13 +393,12 @@ async function loadCommunityPoints() {
     } catch (e) {
       communityPoints = [];
     }
+  } else {
+    communityPoints = [];
   }
-
-  // 4. Если список пуст, добавляем стартовые идеи
-  if (communityPoints.length === 0) {
-    communityPoints = [...DEFAULT_COMMUNITY_SEEDS];
-    saveCommunityPoints();
-  }
+  renderCommunityMarkersOnMap();
+  renderCommunityList();
+  updateStats();
 }
 
 async function saveCommunityPoints() {
@@ -788,3 +742,61 @@ function openMemoModal() {
 function closeMemoModal() {
   document.getElementById('driverMemoModal').classList.add('hidden');
 }
+
+// 9. Авторизация по кодовому слову («пупупу»)
+const VALID_PASSCODES = ['пупупу', 'pupupu', 'gegege'];
+
+function checkAuthGate() {
+  const isAuth = localStorage.getItem('pupupu_auth') === 'true';
+  const modal = document.getElementById('authGateModal');
+  if (!modal) return;
+
+  if (isAuth) {
+    modal.classList.add('hidden');
+  } else {
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      const input = document.getElementById('authCodeInput');
+      if (input) input.focus();
+    }, 150);
+  }
+}
+
+function handleAuthSubmit(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('authCodeInput');
+  const err = document.getElementById('authErrorMessage');
+  const val = (input ? input.value : '').trim().toLowerCase();
+
+  if (VALID_PASSCODES.includes(val)) {
+    localStorage.setItem('pupupu_auth', 'true');
+    const modal = document.getElementById('authGateModal');
+    if (modal) modal.classList.add('hidden');
+    if (err) err.classList.add('hidden');
+    showToast('Добро пожаловать в Пу-пу-путешествие! 🚗💨', 'success');
+  } else {
+    if (err) {
+      err.textContent = 'Неверное слово! Спросите у Ромы 😉';
+      err.classList.remove('hidden');
+    }
+    if (input) {
+      input.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/30');
+      input.focus();
+      input.select();
+    }
+  }
+}
+
+function lockApp() {
+  localStorage.removeItem('pupupu_auth');
+  const input = document.getElementById('authCodeInput');
+  const err = document.getElementById('authErrorMessage');
+  if (input) {
+    input.value = '';
+    input.classList.remove('border-rose-500', 'ring-2', 'ring-rose-500/30');
+  }
+  if (err) err.classList.add('hidden');
+  checkAuthGate();
+  showToast('Приложение заблокировано 🔒', 'info');
+}
+
