@@ -8,6 +8,55 @@ let communityMarkerLayers = [];
 let currentActiveDay = 'all';
 let selectedLatLngForNewPin = null;
 
+// Точка старта экспедиции ('tomsk' | 'karaganda')
+let currentStartCity = localStorage.getItem('tianshan_start_city') || 'tomsk';
+
+function getActiveDays() {
+  if (currentStartCity === 'tomsk' && TRIP_DATA.tomsk_transit) {
+    return [TRIP_DATA.tomsk_transit.day0, ...TRIP_DATA.days, TRIP_DATA.tomsk_transit.day15];
+  }
+  return TRIP_DATA.days;
+}
+
+function setTripStartCity(city) {
+  currentStartCity = city;
+  localStorage.setItem('tianshan_start_city', city);
+  updateStartCityButtons();
+
+  currentActiveDay = 'all';
+  renderAllRoutes();
+  renderDaysNavigation();
+  renderTimeline();
+  updateStats();
+
+  setTimeout(() => {
+    if (map) {
+      map.invalidateSize();
+      const allBounds = L.latLngBounds();
+      getActiveDays().forEach(day => {
+        day.route_points.forEach(pt => allBounds.extend(pt));
+      });
+      if (allBounds.isValid()) {
+        map.fitBounds(allBounds, { padding: [35, 35] });
+      }
+    }
+  }, 150);
+}
+
+function updateStartCityButtons() {
+  const btnTomsk = document.getElementById('btnStartTomsk');
+  const btnKaraganda = document.getElementById('btnStartKaraganda');
+  if (!btnTomsk || !btnKaraganda) return;
+
+  if (currentStartCity === 'tomsk') {
+    btnTomsk.className = 'flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm bg-blue-600 text-white cursor-pointer';
+    btnKaraganda.className = 'flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white bg-transparent cursor-pointer';
+  } else {
+    btnKaraganda.className = 'flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm bg-blue-600 text-white cursor-pointer';
+    btnTomsk.className = 'flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white bg-transparent cursor-pointer';
+  }
+}
+
 // Хранилище точек друзей и инстанс Firebase Realtime DB
 let communityPoints = [];
 let firebaseDb = null;
@@ -16,6 +65,7 @@ let firebaseDb = null;
 document.addEventListener('DOMContentLoaded', async () => {
   checkAuthGate();
   updateHeaderUserBadge();
+  updateStartCityButtons();
   loadRouletteHistory();
   renderRouletteHistory();
   initMap();
@@ -77,7 +127,7 @@ function initMap() {
     if (map) {
       map.invalidateSize();
       const allBounds = L.latLngBounds();
-      TRIP_DATA.days.forEach(day => {
+      getActiveDays().forEach(day => {
         day.route_points.forEach(pt => allBounds.extend(pt));
       });
       if (allBounds.isValid()) {
@@ -109,7 +159,7 @@ function renderAllRoutes() {
 
   const allBounds = L.latLngBounds();
 
-  TRIP_DATA.days.forEach(day => {
+  getActiveDays().forEach(day => {
     // Линия маршрута
     const polyline = L.polyline(day.route_points, {
       color: day.color,
@@ -242,7 +292,7 @@ function selectDay(dayId) {
     return;
   }
 
-  const selectedDayData = TRIP_DATA.days.find(d => d.day === parseInt(dayId));
+  const selectedDayData = getActiveDays().find(d => d.day === parseInt(dayId));
   if (!selectedDayData) return;
 
   const dayBounds = L.latLngBounds();
@@ -291,10 +341,11 @@ function renderDaysNavigation() {
     </button>
   `;
 
-  TRIP_DATA.days.forEach(d => {
+  getActiveDays().forEach(d => {
+    const label = d.day === 0 ? 'День 0 (Томск)' : (d.day === 15 ? 'День 15 (Томск)' : `День ${d.day}`);
     html += `
       <button onclick="selectDay(${d.day})" id="btn-day-${d.day}" class="day-filter-btn px-3 py-1.5 text-xs font-semibold rounded-full bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white transition whitespace-nowrap">
-        День ${d.day}
+        ${label}
       </button>
     `;
   });
@@ -321,7 +372,7 @@ function renderTimeline() {
   if (!container) return;
 
   let html = '';
-  TRIP_DATA.days.forEach(d => {
+  getActiveDays().forEach(d => {
     // Google Maps URL для навигации этого дня
     const startPt = d.start_coord.join(',');
     const endPt = d.end_coord.join(',');
@@ -971,7 +1022,7 @@ function setMobileView(mode) {
       map.invalidateSize();
       if (mode === 'map' && currentActiveDay === 'all') {
         const allBounds = L.latLngBounds();
-        TRIP_DATA.days.forEach(day => day.route_points.forEach(pt => allBounds.extend(pt)));
+        getActiveDays().forEach(day => day.route_points.forEach(pt => allBounds.extend(pt)));
         if (allBounds.isValid()) map.fitBounds(allBounds, { padding: [25, 25] });
       }
     }
@@ -1006,8 +1057,12 @@ function updateStats() {
   const friendsEl = document.getElementById('statFriendsPins');
   const badgeEl = document.getElementById('badgeFriendsCount');
 
-  if (kmEl) kmEl.innerText = `${TRIP_DATA.meta.total_km} км`;
-  if (daysEl) daysEl.innerText = `${TRIP_DATA.meta.duration_days} дней`;
+  const isTomsk = (currentStartCity === 'tomsk');
+  const totalKm = isTomsk ? 5900 : TRIP_DATA.meta.total_km;
+  const totalDays = isTomsk ? 16 : TRIP_DATA.meta.duration_days;
+
+  if (kmEl) kmEl.innerText = `${totalKm.toLocaleString('ru-RU')} км`;
+  if (daysEl) daysEl.innerText = `${totalDays} дней`;
   if (friendsEl) friendsEl.innerText = `${communityPoints.length}`;
   if (badgeEl) badgeEl.innerText = `${communityPoints.length}`;
 }
@@ -1077,7 +1132,7 @@ async function shareTripLink() {
 }
 
 function downloadTripGPX() {
-  downloadGPXFile(TRIP_DATA, communityPoints);
+  downloadGPXFile(TRIP_DATA, communityPoints, getActiveDays());
   showToast('GPX-трек сгенерирован и скачивается для Organic Maps / 2ГИС!', 'success');
 }
 

@@ -205,7 +205,19 @@
       </div>
 
       <!-- Вкладка 1: Карточки дней -->
-      <div id="tabContentRoute" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
+      <div id="tabContentRoute" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
+        <!-- Выбор точки старта: Томск vs Караганда -->
+        <div class="bg-slate-900/90 p-1 rounded-2xl border border-slate-800 flex items-center gap-1 text-xs shadow-sm">
+          <button type="button" id="btnStartTomsk" onclick="setTripStartCity('tomsk')" class="flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm bg-blue-600 text-white cursor-pointer" title="Полный маршрут из Томска туда и обратно">
+            <span>🌲</span>
+            <span>Томск (5 900 км)</span>
+          </button>
+          <button type="button" id="btnStartKaraganda" onclick="setTripStartCity('karaganda')" class="flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white bg-transparent cursor-pointer" title="Локальное кольцо по Казахстану и Кыргызстану">
+            <span>🏔️</span>
+            <span>Караганда (3 340 км)</span>
+          </button>
+        </div>
+
         <!-- Статистика поездки -->
         <div class="grid grid-cols-3 gap-2 mb-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800/80 text-center">
           <div>

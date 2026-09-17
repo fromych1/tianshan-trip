@@ -1,5 +1,6 @@
 // gpx_exporter.js — Генератор стандартного GPX XML файла для оффлайн-навигаторов
-function exportTripToGPX(tripData, communityPoints = []) {
+function exportTripToGPX(tripData, communityPoints = [], customDays = null) {
+  const daysToExport = customDays || tripData.days;
   let gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="TianShan RoadTrip Planner" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
@@ -10,7 +11,7 @@ function exportTripToGPX(tripData, communityPoints = []) {
 `;
 
   // Добавляем официальные точки маршрута
-  tripData.days.forEach(d => {
+  daysToExport.forEach(d => {
     d.stops.forEach(s => {
       gpx += `  <wpt lat="${s.coord[0]}" lon="${s.coord[1]}">
     <name>${escapeXml(`[День ${d.day}] ${s.name}`)}</name>
@@ -30,7 +31,7 @@ function exportTripToGPX(tripData, communityPoints = []) {
   });
 
   // Добавляем треки по дням
-  tripData.days.forEach(d => {
+  daysToExport.forEach(d => {
     gpx += `  <trk>
     <name>${escapeXml(`День ${d.day}: ${d.title}`)}</name>
     <desc>${escapeXml(`${d.distance_km} км | ${d.drive_time}`)}</desc>
@@ -58,8 +59,8 @@ function escapeXml(unsafe) {
   });
 }
 
-function downloadGPXFile(tripData, communityPoints) {
-  const gpxContent = exportTripToGPX(tripData, communityPoints);
+function downloadGPXFile(tripData, communityPoints, customDays = null) {
+  const gpxContent = exportTripToGPX(tripData, communityPoints, customDays);
   const blob = new Blob([gpxContent], { type: 'application/gpx+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
