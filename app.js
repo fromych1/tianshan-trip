@@ -46,7 +46,11 @@ function initMap() {
 
   // Клик по карте для добавления пользовательской точки
   map.on('click', (e) => {
-    openAddPointModal(e.latlng);
+    if (isPlacementModeActive) {
+      moveTempMarker(e.latlng);
+    } else {
+      startPinPlacementMode(e.latlng, true);
+    }
   });
 }
 
@@ -69,8 +73,12 @@ function renderAllRoutes() {
       sticky: true
     });
 
-    polyline.on('click', () => {
-      selectDay(day.day);
+    polyline.on('click', (e) => {
+      if (isPlacementModeActive) {
+        moveTempMarker(e.latlng);
+      } else {
+        selectDay(day.day);
+      }
     });
 
     routeLayers.push({ day: day.day, polyline: polyline, color: day.color });
@@ -446,7 +454,11 @@ function renderCommunityList() {
   if (communityPoints.length === 0) {
     container.innerHTML = `
       <div class="text-center py-6 text-slate-400 text-xs">
-        Пока нет предложений от друзей. Нажмите «+ Предложить место» или кликните в любое место на карте!
+        <p class="mb-2.5">Пока нет предложений от друзей.</p>
+        <button onclick="startPinPlacementMode()" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition inline-flex items-center space-x-1.5">
+          <span>💡</span>
+          <span>Поставить точку на карте</span>
+        </button>
       </div>
     `;
     return;
@@ -558,23 +570,175 @@ async function deleteCommunityPoint(pointId) {
   } catch (e) {}
 }
 
-// 7. Модальное окно добавления точки
-function openAddPointModal(latlng = null) {
+// 7. Интерактивный выбор и добавление точки на карте
+let isPlacementModeActive = false;
+let tempPlacementMarker = null;
+
+function createTempPinIcon() {
+  return L.divIcon({
+    className: 'temp-placement-icon',
+    html: `
+      <div class="relative flex flex-col items-center cursor-grab active:cursor-grabbing group">
+        <div class="px-2.5 py-1 mb-1 bg-amber-400 text-slate-950 font-black text-[10px] rounded-full shadow-xl whitespace-nowrap animate-bounce border border-white">
+          🎯 Перетащите меня!
+        </div>
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 text-white shadow-2xl flex items-center justify-center border-2 border-white text-xl">
+          📍
+        </div>
+        <div class="w-3 h-3 bg-amber-400 rounded-full blur-[2px] -mt-1"></div>
+      </div>
+    `,
+    iconSize: [130, 68],
+    iconAnchor: [65, 62],
+    popupAnchor: [0, -62]
+  });
+}
+
+function startPinPlacementMode(initialLatLng = null, openModalImmediately = false) {
+  isPlacementModeActive = true;
+  document.getElementById('addPointModal').classList.add('hidden');
+
+  const pos = initialLatLng || (selectedLatLngForNewPin || map.getCenter());
+  selectedLatLngForNewPin = pos;
+
+  if (!tempPlacementMarker) {
+    tempPlacementMarker = L.marker(pos, {
+      icon: createTempPinIcon(),
+      draggable: true,
+      zIndexOffset: 1000
+    }).addTo(map);
+
+    tempPlacementMarker.on('drag', (e) => {
+      selectedLatLngForNewPin = e.latlng;
+      updatePlacementBannerText(e.latlng);
+    });
+
+    tempPlacementMarker.on('dragend', (e) => {
+      selectedLatLngForNewPin = e.target.getLatLng();
+      updatePlacementBannerText(selectedLatLngForNewPin);
+    });
+
+    tempPlacementMarker.on('click', () => {
+      confirmPinPlacement();
+    });
+  } else {
+    tempPlacementMarker.setLatLng(pos);
+    if (!map.hasLayer(tempPlacementMarker)) {
+      tempPlacementMarker.addTo(map);
+    }
+  }
+
+  updatePlacementBannerText(pos);
+
+  const banner = document.getElementById('placementBanner');
+  if (banner) banner.classList.remove('hidden');
+
+  // Если кликнули прямо на карту при обычном просмотре
+  if (openModalImmediately) {
+    confirmPinPlacement();
+  } else {
+    map.panTo(pos, { animate: true });
+    showToast('Кликните по карте или перетащите маркер в нужное место', 'info');
+  }
+}
+
+function updatePlacementBannerText(latlng) {
+  const textEl = document.getElementById('placementCoordText');
+  if (textEl && latlng) {
+    textEl.innerText = `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`;
+  }
+}
+
+function moveTempMarker(latlng) {
   selectedLatLngForNewPin = latlng;
+  if (tempPlacementMarker) {
+    tempPlacementMarker.setLatLng(latlng);
+  } else {
+    startPinPlacementMode(latlng, false);
+  }
+  updatePlacementBannerText(latlng);
+}
+
+function confirmPinPlacement() {
+  if (!selectedLatLngForNewPin && tempPlacementMarker) {
+    selectedLatLngForNewPin = tempPlacementMarker.getLatLng();
+  }
+  if (!selectedLatLngForNewPin) {
+    selectedLatLngForNewPin = map.getCenter();
+  }
+
+  const banner = document.getElementById('placementBanner');
+  if (banner) banner.classList.add('hidden');
+
+  openAddPointModal(selectedLatLngForNewPin);
+}
+
+function cancelPinPlacement() {
+  isPlacementModeActive = false;
+  if (tempPlacementMarker && map.hasLayer(tempPlacementMarker)) {
+    map.removeLayer(tempPlacementMarker);
+  }
+  tempPlacementMarker = null;
+
+  const banner = document.getElementById('placementBanner');
+  if (banner) banner.classList.add('hidden');
+}
+
+function adjustPinOnMap() {
+  document.getElementById('addPointModal').classList.add('hidden');
+  startPinPlacementMode(selectedLatLngForNewPin, false);
+}
+
+function openAddPointModal(latlng = null) {
+  if (latlng) {
+    selectedLatLngForNewPin = latlng;
+  } else if (!selectedLatLngForNewPin) {
+    selectedLatLngForNewPin = map.getCenter();
+  }
+
+  // Держим маркер на карте, чтобы пользователь видел выбранную локацию
+  if (!tempPlacementMarker) {
+    tempPlacementMarker = L.marker(selectedLatLngForNewPin, {
+      icon: createTempPinIcon(),
+      draggable: true,
+      zIndexOffset: 1000
+    }).addTo(map);
+
+    tempPlacementMarker.on('drag', (e) => {
+      selectedLatLngForNewPin = e.latlng;
+      updatePlacementBannerText(e.latlng);
+    });
+    tempPlacementMarker.on('dragend', (e) => {
+      selectedLatLngForNewPin = e.target.getLatLng();
+      updatePlacementBannerText(selectedLatLngForNewPin);
+    });
+    tempPlacementMarker.on('click', () => {
+      confirmPinPlacement();
+    });
+  } else {
+    tempPlacementMarker.setLatLng(selectedLatLngForNewPin);
+    if (!map.hasLayer(tempPlacementMarker)) {
+      tempPlacementMarker.addTo(map);
+    }
+  }
+
   const modal = document.getElementById('addPointModal');
   const coordHint = document.getElementById('modalCoordHint');
 
-  if (latlng) {
-    coordHint.innerText = `Координаты с карты: ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`;
-  } else {
-    coordHint.innerText = `Подсказка: точка будет добавлена в текущий центр карты`;
+  if (coordHint) {
+    coordHint.innerText = `${selectedLatLngForNewPin.lat.toFixed(4)}, ${selectedLatLngForNewPin.lng.toFixed(4)}`;
   }
 
   modal.classList.remove('hidden');
+  setTimeout(() => {
+    const input = document.getElementById('pinTitle');
+    if (input) input.focus();
+  }, 100);
 }
 
 function closeAddPointModal() {
   document.getElementById('addPointModal').classList.add('hidden');
+  cancelPinPlacement();
 }
 
 async function submitNewPoint(event) {
@@ -595,6 +759,10 @@ async function submitNewPoint(event) {
   if (selectedLatLngForNewPin) {
     lat = selectedLatLngForNewPin.lat;
     lng = selectedLatLngForNewPin.lng;
+  } else if (tempPlacementMarker) {
+    const p = tempPlacementMarker.getLatLng();
+    lat = p.lat;
+    lng = p.lng;
   } else {
     const center = map.getCenter();
     lat = center.lat;
@@ -618,34 +786,34 @@ async function submitNewPoint(event) {
   saveCommunityPoints();
   renderCommunityMarkersOnMap();
   renderCommunityList();
-  closeAddPointModal();
+
+  // Убираем маркер размещения и модалку
+  cancelPinPlacement();
+  document.getElementById('addPointModal').classList.add('hidden');
 
   // Очистка полей
   document.getElementById('pinTitle').value = '';
   document.getElementById('pinNote').value = '';
 
-  showToast(`Точка «${title}» успешно добавлена на карту!`, 'success');
+  showToast(`Точка «${title}» успешно добавлена на карту! 🚀`, 'success');
 
   // Фокусировка на созданной точке
   focusPoint([lat, lng], newPoint.id);
 
   // 1. Синхронизация с облачной базой Firebase Realtime Database
   if (firebaseDb) {
-    try {
-      firebaseDb.ref(`community_points/${newPoint.id}`).set(newPoint);
-      return;
-    } catch (e) {
+    firebaseDb.ref(`community_points/${newPoint.id}`).set(newPoint).catch(e => {
       console.warn('Firebase submit error:', e);
-    }
+    });
   }
 
   // 2. Синхронизация с локальным Python-сервером (server.py)
   try {
-    await fetch('/api/points', {
+    fetch('/api/points', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newPoint)
-    });
+    }).catch(() => {});
   } catch (e) {
     // Offline / static hosting fallback
   }
