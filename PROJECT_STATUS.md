@@ -26,6 +26,8 @@
 - [x] Real-time expedition spin history («Кто что берёт») synchronized locally and across devices via Firebase.
 - [x] Upgraded share link to multi-tier native Web Share API (WhatsApp, Telegram) + modern Clipboard API + fallback.
 - [x] Resolved Leaflet map vs modal z-index stacking conflict (`z-[9999]`), ensuring all modals open in front of the map.
+- [x] Replaced CartoDB basemap with clean OpenStreetMap (roads), Esri Topo (mountains), and Esri Satellite (satellite imagery) layers without watermarks or API keys.
+- [x] Fixed mobile portrait initial map bounds (`invalidateSize` + responsive `fitBounds`) so full route is perfectly framed.
 
 ## 3. Verification
 - Live URL HTTP Status: 200 OK
