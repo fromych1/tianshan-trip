@@ -880,12 +880,49 @@ function showToast(message, type = 'info') {
   }, 3500);
 }
 
-function shareTripLink() {
-  navigator.clipboard.writeText(window.location.href).then(() => {
-    showToast('Ссылка на карту скопирована! Отправьте её друзьям в WhatsApp/Telegram 🚀', 'success');
-  }).catch(() => {
-    prompt('Скопируйте ссылку на карту:', window.location.href);
-  });
+async function shareTripLink() {
+  const url = window.location.href;
+  const shareData = {
+    title: 'Пу-пу-путешествие 2026',
+    text: 'Маршрут и народная карта нашей автоэкспедиции по Казахстану и Кыргызстану! (Пароль: пупупу)',
+    url: url
+  };
+
+  // 1. Попытка нативного шеринга в мобильных браузерах (iOS/Android)
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      showToast('Ссылка успешно отправлена! 🚀', 'success');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+
+  // 2. Современный Clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Ссылка скопирована! Отправьте её друзьям в WhatsApp/Telegram 🚀', 'success');
+      return;
+    } catch (e) {}
+  }
+
+  // 3. Классический надежный execCommand copy
+  try {
+    const input = document.createElement('textarea');
+    input.value = url;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    showToast('Ссылка скопирована в буфер обмена! 🚀', 'success');
+  } catch (e) {
+    prompt('Скопируйте ссылку на карту:', url);
+  }
 }
 
 function downloadTripGPX() {
@@ -905,11 +942,13 @@ function setupEventListeners() {
 }
 
 function openMemoModal() {
-  document.getElementById('driverMemoModal').classList.remove('hidden');
+  const modal = document.getElementById('driverMemoModal');
+  if (modal) modal.classList.remove('hidden');
 }
 
 function closeMemoModal() {
-  document.getElementById('driverMemoModal').classList.add('hidden');
+  const modal = document.getElementById('driverMemoModal');
+  if (modal) modal.classList.add('hidden');
 }
 
 // 9. Авторизация по кодовому слову («пупупу»)
