@@ -1,27 +1,24 @@
 ﻿# PROJECT STATUS: TianShan RoadTrip Planner
 
 ## 1. Active Phase
-- **Phase:** Production Ready / Distribution
+- **Phase:** Live in Production (Deployed)
 - **Date:** 2026-09-17
-- **Version:** v1.0.0
+- **Version:** v1.1.0
+- **Production URL:** https://fromych1.github.io/tianshan-trip/
+- **Cloud Database:** Firebase Realtime Database (`pupupu-d3289`, Belgium `europe-west1`)
 
-## 2. Latest Completed Milestones
+## 2. Completed Milestones
 - [x] Full 14-day loop route designed (~3,340 km): Karaganda ➔ Balkhash ➔ Almaty ➔ Charyn ➔ Kolsay/Kaindy ➔ Karkyra border ➔ Issyk-Kul ➔ Karakol ➔ Jeti-Oguz ➔ Barskoon ➔ Skazka ➔ Bokonbaevo ➔ Burana ➔ Bishkek ➔ Korday ➔ Karaganda.
-- [x] Interactive Leaflet Map with customized CartoDB Voyager tiles, color-coded day segments, and custom category pins.
-- [x] Day filter switcher with dynamic zoom, segment highlighting, and smooth-scrolling timeline sidebar.
-- [x] Friends Collaborative Layer: click map to drop a pin, submit author/category/note, real-time likes counter ("👍 Хочу сюда!").
-- [x] Dual-persistence: localStorage fallback + Python REST API (`/api/points`, `/api/points/like`) storing in `community_points.json`.
-- [x] Direct Google Maps routing links for all stops and friend proposals.
-- [x] Offline GPX exporter (`gpx_exporter.js`) compatible with Organic Maps, OsmAnd, and 2GIS.
-- [x] Driver Handbook modal with border crossing details, insurance, navigation, SIM cards, and road advice.
-- [x] Lightweight Python 3 HTTP server (`server.py`) and 1-click batch launcher (`start_trip_planner.bat`).
-- [x] Comprehensive documentation (`README.md`).
+- [x] Interactive Leaflet Map with CartoDB Voyager tiles, color-coded day tracks, and stop cards.
+- [x] Day switcher with smooth zoom and scrollable timeline.
+- [x] Friends Community POI layer with voting/likes ("👍 Хочу сюда!").
+- [x] Real-time WebSockets synchronization via Firebase Realtime Database.
+- [x] Full unblocked accessibility from Kazakhstan and Russia without VPN.
+- [x] One-click GPX download for offline navigators (Organic Maps, OsmAnd, 2GIS).
+- [x] Google Maps navigation links for every stop and friend proposal.
+- [x] Driver Handbook modal with border crossing details, insurance, SIM cards, currency.
+- [x] Automated repository creation (`fromych1/tianshan-trip`) and GitHub Pages deployment.
 
-## 3. Next Steps & Ideas
-- Optional: Add altitude profiles for mountain passes (Karkyra, Ala-Archa, Barskoon).
-- Optional: Telegram bot integration for notifying friends when new points are submitted.
-
-## 4. Verification Commands
-- Check server syntax: `python -m py_compile server.py`
-- Run local server: `python server.py` (port 5050)
-- Launch batch: `start_trip_planner.bat`
+## 3. Verification
+- Live URL HTTP Status: 200 OK
+- Firebase Database: Connected and verified with live seed reads/writes
