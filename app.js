@@ -1608,7 +1608,7 @@ function spinRoulette() {
       // Запись в историю прокрутов
       recordRouletteSpin(userName, winner);
 
-      showToast(`${userName} берёт с собой: ${winner.fullName}! 🎒`, 'success');
+      showToast(`${userName} берёт с собой: ${winner.fullName}! 🎰`, 'success');
     }
   }
 
