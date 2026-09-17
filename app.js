@@ -15,8 +15,12 @@ let firebaseDb = null;
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', async () => {
   checkAuthGate();
+  updateHeaderUserBadge();
+  loadRouletteHistory();
+  renderRouletteHistory();
   initMap();
   await loadCommunityPoints();
+  setupRouletteFirebaseSync();
   renderDaysNavigation();
   renderTimeline();
   setupEventListeners();
@@ -1001,82 +1005,215 @@ function closeMemoModal() {
   if (modal) modal.classList.add('hidden');
 }
 
-// 9. Авторизация по кодовому слову («пупупу»)
+// 9. Авторизация по кодовому слову («пупупу») и имени
 const VALID_PASSCODES = ['пупупу', 'pupupu', 'gegege'];
+
+function getUserName() {
+  return localStorage.getItem('tianshan_user_name') || '';
+}
+
+function updateHeaderUserBadge() {
+  const name = getUserName();
+  const nameEl = document.getElementById('headerUserName');
+  if (nameEl) {
+    nameEl.innerText = name || 'Вход';
+  }
+  const pinAuthorInput = document.getElementById('pinAuthor');
+  if (pinAuthorInput && name && !pinAuthorInput.value) {
+    pinAuthorInput.value = name;
+  }
+}
 
 function checkAuthGate() {
   const isAuth = localStorage.getItem('pupupu_auth') === 'true';
+  const userName = getUserName();
   const modal = document.getElementById('authGateModal');
   if (!modal) return;
 
-  if (isAuth) {
+  if (isAuth && userName) {
     modal.classList.add('hidden');
+    updateHeaderUserBadge();
   } else {
     modal.classList.remove('hidden');
+    const nameInput = document.getElementById('authNameInput');
+    const codeInput = document.getElementById('authCodeInput');
+    if (userName && nameInput) {
+      nameInput.value = userName;
+    }
     setTimeout(() => {
-      const input = document.getElementById('authCodeInput');
-      if (input) input.focus();
+      if (nameInput && !nameInput.value) {
+        nameInput.focus();
+      } else if (codeInput) {
+        codeInput.focus();
+      }
     }, 150);
   }
 }
 
 function handleAuthSubmit(e) {
   if (e) e.preventDefault();
-  const input = document.getElementById('authCodeInput');
+  const nameInput = document.getElementById('authNameInput');
+  const codeInput = document.getElementById('authCodeInput');
   const err = document.getElementById('authErrorMessage');
-  const val = (input ? input.value : '').trim().toLowerCase();
 
-  if (VALID_PASSCODES.includes(val)) {
+  const name = (nameInput ? nameInput.value : '').trim();
+  const code = (codeInput ? codeInput.value : '').trim().toLowerCase();
+
+  if (!name) {
+    if (err) {
+      err.textContent = 'Пожалуйста, введите ваше имя!';
+      err.classList.remove('hidden');
+    }
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
+  if (VALID_PASSCODES.includes(code)) {
+    localStorage.setItem('tianshan_user_name', name);
     localStorage.setItem('pupupu_auth', 'true');
     const modal = document.getElementById('authGateModal');
     if (modal) modal.classList.add('hidden');
     if (err) err.classList.add('hidden');
-    showToast('Добро пожаловать в Пу-пу-путешествие! 🚗💨', 'success');
+
+    updateHeaderUserBadge();
+    showToast(`Привет, ${name}! Добро пожаловать в Пу-пу-путешествие! 🚗💨`, 'success');
   } else {
     if (err) {
-      err.textContent = 'Неверное слово! Спросите у Ромы 😉';
+      err.textContent = 'Неверное кодовое слово! Спросите у Ромы 😉';
       err.classList.remove('hidden');
     }
-    if (input) {
-      input.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/30');
-      input.focus();
-      input.select();
+    if (codeInput) {
+      codeInput.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/30');
+      codeInput.focus();
+      codeInput.select();
     }
   }
 }
 
 function lockApp() {
   localStorage.removeItem('pupupu_auth');
-  const input = document.getElementById('authCodeInput');
+  const codeInput = document.getElementById('authCodeInput');
   const err = document.getElementById('authErrorMessage');
-  if (input) {
-    input.value = '';
-    input.classList.remove('border-rose-500', 'ring-2', 'ring-rose-500/30');
+  if (codeInput) {
+    codeInput.value = '';
+    codeInput.classList.remove('border-rose-500', 'ring-2', 'ring-rose-500/30');
   }
   if (err) err.classList.add('hidden');
   checkAuthGate();
   showToast('Приложение заблокировано 🔒', 'info');
 }
 
-// 10. Шуточная рулетка: «Кто поедет без трусов?»
-const ROULETTE_PARTICIPANTS = [
-  { name: 'Полина', color: '#ec4899', textColor: '#ffffff', weight: 60, joke: 'Колеса судьбы неумолимы! Готовься ощутить горный бриз Тянь-Шаня во всей красе! 🌬️🩲' },
-  { name: 'Влад', color: '#3b82f6', textColor: '#ffffff', weight: 8, joke: 'Аэродинамика +100 к скорости на перевале! Главное — не садись на горячую кожу! 🏎️💨' },
-  { name: 'Илья', color: '#10b981', textColor: '#ffffff', weight: 8, joke: 'Максимальное единение с дикой природой Иссык-Куля разблокировано! 🏔️🦅' },
-  { name: 'Лена', color: '#8b5cf6', textColor: '#ffffff', weight: 8, joke: 'Штраф за нарушение дресс-кода отменяется — это суверенное решение рулетки! ⚖️✨' },
-  { name: 'Рома', color: '#f59e0b', textColor: '#ffffff', weight: 8, joke: 'Капитан корабля подает пример истинного бесстрашия всему экипажу! 🫡⛵' },
-  { name: 'Карина', color: '#06b6d4', textColor: '#ffffff', weight: 8, joke: 'Экстремальная высокогорная вентиляция по спецпропуску! 🧊😎' }
+// 10. Шуточная рулетка: «Я возьму с собой»
+const ROULETTE_ITEMS = [
+  { shortName: '🩲 Трусы', fullName: 'Трусы (с запасом на 14 дней)', color: '#ec4899', textColor: '#ffffff', joke: 'Главный стратегический запас экспедиции! Без них в горы Тянь-Шаня ни ногой.' },
+  { shortName: '🪤 Капкан', fullName: 'Капкан (на сусликов)', color: '#f97316', textColor: '#ffffff', joke: 'Охранять запасы шоколадок и тушёнки в багажнике от ночных сусликов!' },
+  { shortName: '📻 Рация', fullName: 'Рация (для связи с базой)', color: '#06b6d4', textColor: '#ffffff', joke: '«Приём, база, мы на перевале 3000м, тут ловит только радио Шансон!»' },
+  { shortName: '🪗 Баян', fullName: 'Баян (концертный)', color: '#8b5cf6', textColor: '#ffffff', joke: 'Петь «Седая ночь» на берегу Иссык-Куля под аккомпанемент и зависть чаек!' },
+  { shortName: '🦩 Фламинго', fullName: 'Надувной фламинго', color: '#f43f5e', textColor: '#ffffff', joke: 'Покорять ледяные бирюзовые волны Иссык-Куля с максимальным пафосом!' },
+  { shortName: '🤿 Ласты', fullName: 'Ласты (для восхождений)', color: '#10b981', textColor: '#ffffff', joke: 'Незаменимы при пешем подъёме на крутые скалы Чарынского каньона!' },
+  { shortName: '🪆 Ковёр', fullName: 'Ковёр на стену', color: '#eab308', textColor: '#ffffff', joke: 'Для создания домашнего уюта прямо внутри туристической палатки на фоне ледников.' },
+  { shortName: '🪘 Бубен', fullName: 'Шаманский бубен', color: '#6366f1', textColor: '#ffffff', joke: 'Экспедиционный способ разгона грозовых туч и призыва шашлыка без очереди.' },
+  { shortName: '🪠 Вантуз', fullName: 'Золотой вантуз', color: '#14b8a6', textColor: '#ffffff', joke: 'Оружие судного дня и почётный скипетр предводителя автоколонны!' }
 ];
 
 let rouletteCurrentAngle = 0;
 let isRouletteSpinning = false;
 let rouletteAudioCtx = null;
+let rouletteHistory = [];
+
+function loadRouletteHistory() {
+  try {
+    const raw = localStorage.getItem('tianshan_roulette_history');
+    if (raw) rouletteHistory = JSON.parse(raw);
+  } catch (e) {
+    rouletteHistory = [];
+  }
+}
+
+function saveRouletteHistory() {
+  try {
+    localStorage.setItem('tianshan_roulette_history', JSON.stringify(rouletteHistory));
+  } catch (e) {}
+}
+
+function renderRouletteHistory() {
+  const listEl = document.getElementById('rouletteHistoryList');
+  const countEl = document.getElementById('rouletteHistoryCount');
+  if (!listEl) return;
+
+  if (countEl) {
+    countEl.innerText = `${rouletteHistory.length} выпало`;
+  }
+
+  if (!rouletteHistory || rouletteHistory.length === 0) {
+    listEl.innerHTML = `<p class="text-[11px] text-slate-500 italic py-2 text-center">Пока никто ничего не вытянул. Крутите колесо!</p>`;
+    return;
+  }
+
+  listEl.innerHTML = rouletteHistory.slice(0, 20).map(entry => `
+    <div class="p-2 bg-slate-950/70 border border-slate-800/80 rounded-xl flex items-center justify-between">
+      <div class="flex items-center space-x-2 overflow-hidden">
+        <span class="text-sm shrink-0">${entry.icon || '🎒'}</span>
+        <div class="truncate">
+          <p class="text-[11px] font-bold text-white truncate">
+            <span class="text-amber-400">${escapeHtml(entry.userName || 'Участник')}</span> берёт:
+            <span class="text-pink-300 font-extrabold">${escapeHtml(entry.itemName)}</span>
+          </p>
+          ${entry.joke ? `<p class="text-[10px] text-slate-400 italic truncate">${escapeHtml(entry.joke)}</p>` : ''}
+        </div>
+      </div>
+      <span class="text-[9px] text-slate-500 font-mono pl-2 shrink-0">${entry.time || ''}</span>
+    </div>
+  `).join('');
+}
+
+function setupRouletteFirebaseSync() {
+  if (!firebaseDb) return;
+  firebaseDb.ref('roulette_spins').limitToLast(30).on('value', snapshot => {
+    const data = snapshot.val();
+    if (data) {
+      const items = Object.values(data);
+      items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      rouletteHistory = items;
+      saveRouletteHistory();
+      renderRouletteHistory();
+    }
+  });
+}
+
+function recordRouletteSpin(userName, item) {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const icon = (item.shortName || '').split(' ')[0] || '🎒';
+  const entry = {
+    id: 'spin_' + Date.now(),
+    userName: userName || 'Друг',
+    itemName: item.fullName || item.shortName,
+    icon: icon,
+    joke: item.joke || '',
+    time: timeStr,
+    timestamp: Date.now()
+  };
+
+  rouletteHistory.unshift(entry);
+  if (rouletteHistory.length > 50) rouletteHistory.pop();
+  saveRouletteHistory();
+  renderRouletteHistory();
+
+  // Отправка в Firebase для синхронизации со всеми участниками
+  if (firebaseDb) {
+    firebaseDb.ref(`roulette_spins/${entry.id}`).set(entry).catch(err => {
+      console.warn('Firebase roulette record error:', err);
+    });
+  }
+}
 
 function openRouletteModal() {
   const modal = document.getElementById('rouletteModal');
   if (!modal) return;
   modal.classList.remove('hidden');
   drawRouletteWheel(rouletteCurrentAngle);
+  renderRouletteHistory();
 }
 
 function closeRouletteModal() {
@@ -1093,7 +1230,7 @@ function drawRouletteWheel(angle = 0) {
   const centerX = width / 2;
   const centerY = height / 2;
   const radius = width / 2 - 10;
-  const count = ROULETTE_PARTICIPANTS.length;
+  const count = ROULETTE_ITEMS.length;
   const sliceAngle = (2 * Math.PI) / count;
 
   ctx.clearRect(0, 0, width, height);
@@ -1104,7 +1241,7 @@ function drawRouletteWheel(angle = 0) {
 
   // Сектора
   for (let i = 0; i < count; i++) {
-    const p = ROULETTE_PARTICIPANTS[i];
+    const item = ROULETTE_ITEMS[i];
     const startAngle = i * sliceAngle;
     const endAngle = startAngle + sliceAngle;
 
@@ -1113,7 +1250,7 @@ function drawRouletteWheel(angle = 0) {
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, radius, startAngle, endAngle);
     ctx.closePath();
-    ctx.fillStyle = p.color;
+    ctx.fillStyle = item.color;
     ctx.fill();
 
     // Границы
@@ -1121,20 +1258,21 @@ function drawRouletteWheel(angle = 0) {
     ctx.strokeStyle = '#0f172a';
     ctx.stroke();
 
-    // Текст имени
+    // Текст предмета
     ctx.save();
     ctx.rotate(startAngle + sliceAngle / 2);
     ctx.textAlign = 'right';
-    ctx.fillStyle = p.textColor;
-    ctx.font = 'bold 14px sans-serif';
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = item.textColor;
+    ctx.font = 'bold 12.5px sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.7)';
     ctx.shadowBlur = 4;
-    ctx.fillText(p.name, radius - 20, 5);
+    ctx.fillText(item.shortName, radius - 16, 0);
     ctx.restore();
   }
 
   // Декоративные точки по ободу
-  const dotsCount = 24;
+  const dotsCount = 27;
   for (let d = 0; d < dotsCount; d++) {
     const dotAngle = (d * 2 * Math.PI) / dotsCount;
     const dotX = (radius + 4) * Math.cos(dotAngle);
@@ -1243,6 +1381,10 @@ function launchConfetti() {
   animateConfetti();
 }
 
+function mathMod(n, m) {
+  return ((n % m) + m) % m;
+}
+
 function spinRoulette() {
   if (isRouletteSpinning) return;
   isRouletteSpinning = true;
@@ -1258,42 +1400,34 @@ function spinRoulette() {
   }
   if (centerBtn) centerBtn.disabled = true;
 
-  if (titleEl) titleEl.innerText = '🌀 Барабан судьбы раскручивается...';
-  if (quoteEl) quoteEl.innerText = 'Кому же выпадет этот почётный жребий?';
+  if (titleEl) titleEl.innerText = '🌀 Барабан раскручивается...';
+  if (quoteEl) quoteEl.innerText = 'Что же выпадет в дорогу?';
 
-  // Взвешенный выбор победителя (Полина: 60%, остальные: по 8%)
-  const rand = Math.random() * 100;
-  let cumulative = 0;
-  let winnerIndex = 0;
-  for (let i = 0; i < ROULETTE_PARTICIPANTS.length; i++) {
-    cumulative += ROULETTE_PARTICIPANTS[i].weight;
-    if (rand < cumulative) {
-      winnerIndex = i;
-      break;
-    }
-  }
-
-  const winner = ROULETTE_PARTICIPANTS[winnerIndex];
-  const count = ROULETTE_PARTICIPANTS.length;
+  // 100% равные шансы у всех 9 предметов (1/9)
+  const count = ROULETTE_ITEMS.length;
+  const winnerIndex = Math.floor(Math.random() * count);
+  const winner = ROULETTE_ITEMS[winnerIndex];
   const sliceAngle = (2 * Math.PI) / count;
 
-  // Расчет целевого угла:
-  // Стрелка находится на 12 часов (угол 3*PI/2 = 270 deg)
-  // Центр сектора i: (i + 0.5) * sliceAngle
-  // targetAngle = 3*PI/2 - (i + 0.5) * sliceAngle
-  // Добавляем небольшое случайное смещение внутри сектора (+- sliceAngle * 0.3)
-  const jitter = (Math.random() - 0.5) * sliceAngle * 0.6;
-  const targetSectorCenter = (3 * Math.PI / 2) - ((winnerIndex + 0.5) * sliceAngle) + jitter;
+  // Стрелка находится ровно вверху (угол 1.5 * PI = 270 градусов).
+  // Центр сектора winnerIndex в локальных координатах колеса: (winnerIndex + 0.5) * sliceAngle.
+  // При повороте колеса на угол A:
+  // sectorCenter + A = 1.5 * PI (по модулю 2 * PI)
+  // => A = 1.5 * PI - sectorCenter.
+  const twoPi = 2 * Math.PI;
+  const sectorCenter = (winnerIndex + 0.5) * sliceAngle;
+  // Небольшое случайное смещение внутри сектора (+-25%), чтобы не всегда по центру
+  const jitter = (Math.random() - 0.5) * (sliceAngle * 0.5);
+  const targetAngle = mathMod(1.5 * Math.PI - sectorCenter + jitter, twoPi);
 
-  // Нормализуем текущий угол
   const startAngle = rouletteCurrentAngle;
-  const normalizedStart = startAngle % (2 * Math.PI);
-  let delta = (targetSectorCenter - normalizedStart) % (2 * Math.PI);
-  if (delta < 0) delta += 2 * Math.PI;
+  const currentMod = mathMod(startAngle, twoPi);
+  let delta = mathMod(targetAngle - currentMod, twoPi);
+  if (delta < 0.25) delta += twoPi;
 
   // 6 до 8 полных оборотов
-  const extraSpins = 6 + Math.floor(Math.random() * 3);
-  const totalRotation = delta + extraSpins * (2 * Math.PI);
+  const extraSpins = (6 + Math.floor(Math.random() * 3)) * twoPi;
+  const totalRotation = delta + extraSpins;
   const finalAngle = startAngle + totalRotation;
 
   const duration = 4800; // 4.8 секунды
@@ -1313,7 +1447,7 @@ function spinRoulette() {
     drawRouletteWheel(rouletteCurrentAngle);
 
     // Звуковой тик при прохождении сектора
-    const currentSector = Math.floor((rouletteCurrentAngle / sliceAngle)) % count;
+    const currentSector = Math.floor(mathMod(rouletteCurrentAngle, twoPi) / sliceAngle) % count;
     if (currentSector !== lastSectorIndex) {
       lastSectorIndex = currentSector;
       playRouletteTick();
@@ -1335,14 +1469,18 @@ function spinRoulette() {
       playRouletteWinFanfare();
       launchConfetti();
 
+      const userName = getUserName() || 'Друг';
       if (titleEl) {
-        titleEl.innerHTML = `<span class="text-pink-400 font-black text-sm uppercase">🎉 Победитель: ${winner.name}! 🩲</span>`;
+        titleEl.innerHTML = `<span class="text-amber-400 font-black text-sm uppercase">🎉 ${escapeHtml(userName)} берёт: ${escapeHtml(winner.fullName)}!</span>`;
       }
       if (quoteEl) {
-        quoteEl.innerHTML = `<span class="text-slate-200 font-medium">${winner.joke}</span>`;
+        quoteEl.innerHTML = `<span class="text-slate-200 font-medium">${escapeHtml(winner.joke)}</span>`;
       }
 
-      showToast(`Рулетка выбрала: ${winner.name}! 🩲`, 'info');
+      // Запись в историю прокрутов
+      recordRouletteSpin(userName, winner);
+
+      showToast(`${userName} берёт с собой: ${winner.fullName}! 🎒`, 'success');
     }
   }
 
