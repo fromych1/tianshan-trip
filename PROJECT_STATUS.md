@@ -3,7 +3,7 @@
 ## 1. Active Phase
 - **Phase:** Live in Production (Deployed)
 - **Date:** 2026-09-17
-- **Version:** v1.6.0
+- **Version:** v1.7.0
 - **Production URL:** https://fromych1.github.io/tianshan-trip/
 - **Cloud Database:** Firebase Realtime Database (`pupupu-d3289`, Belgium `europe-west1`)
 
@@ -31,6 +31,7 @@
 - [x] Fixed mobile layout overlap bug: removed rigid `min-height: 380px` on `#map`, made header action buttons responsive.
 - [x] Fixed mobile view switcher (`🗺️ Карта` / `🌗 50/50` / `📋 Дни`): implemented bulletproof CSS media query layout triggered by `data-mobile-view` attribute on `<body>` with both direct onclick and event listeners.
 - [x] Added dedicated Crew Discussion tab (`💬 Чат`): live discussion stream for preparation questions, gear distribution, and border crossing doubts (seeded with eastern Karkyra border guide), synchronized via Firebase Realtime DB with reaction chips (`👍`, `⚠️`, `✅ Решено`).
+- [x] Added Start City Toggle Switch: `🌲 Томск (5 900 км, 16 дней)` vs `🏔️ Караганда (3 340 км, 14 дней)` with Day 0 (Томск ➔ Караганда через Павлодар) and Day 15 (Караганда ➔ Томск), full cross-border map tracks, dynamic stats recalculation, day chips, and GPX export synchronization.
 
 ## 3. Verification
 - Live URL HTTP Status: 200 OK
