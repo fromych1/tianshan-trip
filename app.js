@@ -85,6 +85,9 @@ function initMap() {
 
   window.addEventListener('resize', () => {
     if (map) map.invalidateSize();
+    if (window.innerWidth < 768) {
+      setMobileView(currentMobileView);
+    }
   });
 
   // Клик по карте для добавления пользовательской точки
@@ -638,6 +641,9 @@ function createTempPinIcon() {
 }
 
 function startPinPlacementMode(initialLatLng = null, openModalImmediately = false) {
+  if (window.innerWidth < 768 && currentMobileView === 'list') {
+    setMobileView('map');
+  }
   isPlacementModeActive = true;
   const modal = document.getElementById('addPointModal');
   if (modal) modal.classList.add('hidden');
@@ -930,7 +936,70 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+let currentMobileView = 'split';
+
+function setMobileView(mode) {
+  currentMobileView = mode;
+  const aside = document.getElementById('sidebarAside');
+  const section = document.getElementById('mapSection');
+  const btnMap = document.getElementById('mobileViewBtnMap');
+  const btnSplit = document.getElementById('mobileViewBtnSplit');
+  const btnList = document.getElementById('mobileViewBtnList');
+  if (!aside || !section) return;
+
+  [btnMap, btnSplit, btnList].forEach(b => {
+    if (b) {
+      b.classList.remove('bg-blue-600', 'text-white');
+      b.classList.add('text-slate-400');
+    }
+  });
+
+  if (mode === 'map') {
+    if (btnMap) {
+      btnMap.classList.add('bg-blue-600', 'text-white');
+      btnMap.classList.remove('text-slate-400');
+    }
+    aside.classList.add('hidden');
+    aside.classList.remove('h-1/2', 'h-full');
+    section.classList.remove('hidden', 'h-1/2');
+    section.classList.add('h-full');
+  } else if (mode === 'list') {
+    if (btnList) {
+      btnList.classList.add('bg-blue-600', 'text-white');
+      btnList.classList.remove('text-slate-400');
+    }
+    section.classList.add('hidden');
+    section.classList.remove('h-1/2', 'h-full');
+    aside.classList.remove('hidden', 'h-1/2');
+    aside.classList.add('h-full');
+  } else {
+    // split (50/50)
+    if (btnSplit) {
+      btnSplit.classList.add('bg-blue-600', 'text-white');
+      btnSplit.classList.remove('text-slate-400');
+    }
+    aside.classList.remove('hidden', 'h-full');
+    aside.classList.add('h-1/2');
+    section.classList.remove('hidden', 'h-full');
+    section.classList.add('h-1/2');
+  }
+
+  setTimeout(() => {
+    if (map) {
+      map.invalidateSize();
+      if (currentActiveDay === 'all') {
+        const allBounds = L.latLngBounds();
+        TRIP_DATA.days.forEach(day => day.route_points.forEach(pt => allBounds.extend(pt)));
+        if (allBounds.isValid()) map.fitBounds(allBounds, { padding: [25, 25] });
+      }
+    }
+  }, 100);
+}
+
 function focusPoint(coords, pointId) {
+  if (window.innerWidth < 768 && currentMobileView === 'list') {
+    setMobileView('map');
+  }
   map.setView(coords, 13, { animate: true });
   const target = communityMarkerLayers.find(m => m.pointId === pointId)
     || markerLayers.find(m => m.marker && Math.abs(m.marker.getLatLng().lat - coords[0]) < 0.005 && Math.abs(m.marker.getLatLng().lng - coords[1]) < 0.005);
