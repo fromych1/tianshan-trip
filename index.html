@@ -186,16 +186,21 @@
     <!-- SIDEBAR: Дни и Идеи от друзей -->
     <aside id="sidebarAside" class="w-full md:w-[420px] lg:w-[460px] bg-slate-950 border-r border-slate-800/80 flex flex-col shrink-0 z-20 h-1/2 md:h-full overflow-hidden order-2 md:order-1 min-h-0 md:!flex md:!h-full">
       
-      <!-- Вкладки сайдбара: Маршрут / Идеи друзей -->
-      <div class="flex items-center border-b border-slate-800 bg-slate-900/80 p-2 gap-2 flex-shrink-0">
-        <button id="tabBtnRoute" onclick="switchSidebarTab('route')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-blue-600 transition flex items-center justify-center space-x-1.5">
+      <!-- Вкладки сайдбара: Маршрут / Идеи друзей / Чат экипажа -->
+      <div class="flex items-center border-b border-slate-800 bg-slate-900/80 p-1.5 sm:p-2 gap-1.5 sm:gap-2 flex-shrink-0">
+        <button id="tabBtnRoute" onclick="switchSidebarTab('route')" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-bold text-white bg-blue-600 transition flex items-center justify-center space-x-1 shadow-sm">
           <span>🗓️</span>
-          <span>Маршрут по дням</span>
+          <span>Маршрут</span>
         </button>
-        <button id="tabBtnCommunity" onclick="switchSidebarTab('community')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1.5">
+        <button id="tabBtnCommunity" onclick="switchSidebarTab('community')" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1">
           <span>💡</span>
-          <span>Идеи от друзей</span>
-          <span id="badgeFriendsCount" class="ml-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black">0</span>
+          <span>Идеи</span>
+          <span id="badgeFriendsCount" class="ml-0.5 px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black">0</span>
+        </button>
+        <button id="tabBtnChat" onclick="switchSidebarTab('chat')" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1">
+          <span>💬</span>
+          <span>Чат</span>
+          <span id="badgeChatCount" class="ml-0.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black">0</span>
         </button>
       </div>
 
@@ -235,6 +240,40 @@
         <div id="communityPointsList">
           <!-- Генерируется из app.js -->
         </div>
+      </div>
+
+      <!-- Вкладка 3: Обсуждение и вопросы экипажа (Чат) -->
+      <div id="tabContentChat" class="hidden flex-1 flex flex-col overflow-hidden p-3 sm:p-4 min-h-0">
+        <!-- Верхняя подсказка -->
+        <div class="mb-2.5 p-3 bg-blue-950/40 border border-blue-500/30 rounded-2xl text-xs text-blue-200 shrink-0">
+          <div class="flex items-center space-x-1.5 font-bold mb-1 text-blue-300">
+            <span>💬</span>
+            <span>Обсуждение и подготовка</span>
+          </div>
+          <p class="text-[11px] text-blue-200/80 leading-relaxed">
+            Сомнения по дорогам, КПП, распределение снаряжения (рации, трос, горелка). Синхронизируется онлайн для всех друзей!
+          </p>
+        </div>
+
+        <!-- Список сообщений чата (скроллируемый) -->
+        <div id="chatMessagesList" class="flex-1 overflow-y-auto space-y-2.5 pr-1 no-scrollbar min-h-0">
+          <!-- Генерируется из app.js -->
+        </div>
+
+        <!-- Форма отправки сообщения -->
+        <form id="chatMessageForm" onsubmit="handleSendChatMessage(event)" class="pt-2 mt-2 border-t border-slate-800 shrink-0 space-y-1.5">
+          <div class="flex items-center space-x-1.5">
+            <input type="text" id="chatMessageInput" placeholder="Вопрос или мысль экипажу..." maxlength="400" required autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition">
+            <button type="submit" class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition shrink-0 flex items-center space-x-1">
+              <span class="hidden sm:inline">Отправить</span>
+              <span>🚀</span>
+            </button>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-slate-500 px-1">
+            <span>Автор: <span id="chatAuthorLabel" class="text-amber-400 font-bold">Вы</span></span>
+            <span>Нажмите Enter</span>
+          </div>
+        </form>
       </div>
 
     </aside>
@@ -533,27 +572,5 @@
   <script src="route_data.js"></script>
   <script src="gpx_exporter.js"></script>
   <script src="app.js"></script>
-  <script>
-    // Переключение вкладок сайдбара
-    function switchSidebarTab(tabName) {
-      const btnRoute = document.getElementById('tabBtnRoute');
-      const btnCommunity = document.getElementById('tabBtnCommunity');
-      const contentRoute = document.getElementById('tabContentRoute');
-      const contentCommunity = document.getElementById('tabContentCommunity');
-
-      if (tabName === 'route') {
-        btnRoute.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-blue-600 transition flex items-center justify-center space-x-1.5';
-        btnCommunity.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1.5';
-        contentRoute.classList.remove('hidden');
-        contentCommunity.classList.add('hidden');
-      } else {
-        btnCommunity.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-amber-600 transition flex items-center justify-center space-x-1.5';
-        btnRoute.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1.5';
-        contentCommunity.classList.remove('hidden');
-        contentRoute.classList.add('hidden');
-        renderCommunityList();
-      }
-    }
-  </script>
 </body>
 </html>

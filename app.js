@@ -21,11 +21,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMap();
   await loadCommunityPoints();
   setupRouletteFirebaseSync();
+  setupChatFirebaseSync();
   renderDaysNavigation();
   renderTimeline();
   setupEventListeners();
   renderCommunityList();
+  renderChatList();
   updateStats();
+  updateChatBadge();
 });
 
 // 1. Инициализация карты Leaflet
@@ -1124,6 +1127,10 @@ function updateHeaderUserBadge() {
   if (pinAuthorInput && name && !pinAuthorInput.value) {
     pinAuthorInput.value = name;
   }
+  const chatAuthorLabel = document.getElementById('chatAuthorLabel');
+  if (chatAuthorLabel) {
+    chatAuthorLabel.innerText = name || 'Вы';
+  }
 }
 
 function checkAuthGate() {
@@ -1600,6 +1607,271 @@ function spinRoulette() {
   }
 
   requestAnimationFrame(frame);
+}
+
+// ==========================================
+// 10. Сайдбар: переключение вкладок (Маршрут / Идеи / Чат)
+// ==========================================
+function switchSidebarTab(tabName) {
+  const btnRoute = document.getElementById('tabBtnRoute');
+  const btnCommunity = document.getElementById('tabBtnCommunity');
+  const btnChat = document.getElementById('tabBtnChat');
+  const contentRoute = document.getElementById('tabContentRoute');
+  const contentCommunity = document.getElementById('tabContentCommunity');
+  const contentChat = document.getElementById('tabContentChat');
+
+  const tabs = [
+    { name: 'route', btn: btnRoute, content: contentRoute, activeColor: 'bg-blue-600' },
+    { name: 'community', btn: btnCommunity, content: contentCommunity, activeColor: 'bg-amber-600' },
+    { name: 'chat', btn: btnChat, content: contentChat, activeColor: 'bg-emerald-600' }
+  ];
+
+  tabs.forEach(t => {
+    if (!t.btn || !t.content) return;
+    if (t.name === tabName) {
+      t.btn.className = `flex-1 py-1.5 px-2 rounded-lg text-xs font-bold text-white ${t.activeColor} transition flex items-center justify-center space-x-1 shadow-sm`;
+      t.content.classList.remove('hidden');
+      if (t.name === 'chat') {
+        t.content.classList.add('flex');
+        const list = document.getElementById('chatMessagesList');
+        if (list) list.scrollTop = list.scrollHeight;
+      }
+    } else {
+      t.btn.className = 'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1';
+      t.content.classList.add('hidden');
+      if (t.name === 'chat') {
+        t.content.classList.remove('flex');
+      }
+    }
+  });
+
+  if (tabName === 'community') renderCommunityList();
+  if (tabName === 'chat') renderChatList();
+}
+
+// ==========================================
+// 11. Вкладка обсуждений и чат экипажа
+// ==========================================
+let chatMessages = [];
+
+const DEFAULT_CHAT_MESSAGES = [
+  {
+    id: 'msg_karkyra_border',
+    author: 'Влад',
+    text: 'Ребят, не уверен насчет пересечения границы с восточной стороны через КПП Каркыра. Кто знает точные часы работы и проедем ли мы там?',
+    timestamp: Date.now() - 1000 * 60 * 35,
+    reactions: { '👍': ['Илья'], '⚠️': ['Рома'] },
+    systemAnswer: '📌 Справка из Памятки: КПП Каркыра (Казахстан — Кыргызстан) работает только в светлое время суток (обычно 08:30–18:00, с мая по октябрь). Дорога — 60 км накатанной сухой гравийки, любой седан спокойно проходит на скорости 40–50 км/ч. После дождей комфортнее на авто с клиренсом от 17 см.'
+  }
+];
+
+function setupChatFirebaseSync() {
+  if (initFirebaseIfAvailable() && firebaseDb) {
+    const chatRef = firebaseDb.ref('trip_discussions');
+    chatRef.on('value', (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        if (Array.isArray(val)) {
+          chatMessages = val.filter(Boolean);
+        } else {
+          chatMessages = Object.keys(val).map(k => ({ id: k, ...val[k] }));
+        }
+        chatMessages.sort((a, b) => a.timestamp - b.timestamp);
+      } else {
+        chatMessages = [...DEFAULT_CHAT_MESSAGES];
+        chatRef.set(chatMessages);
+      }
+      localStorage.setItem('tianshan_chat_messages', JSON.stringify(chatMessages));
+      renderChatList();
+      updateChatBadge();
+    });
+  } else {
+    const saved = localStorage.getItem('tianshan_chat_messages');
+    if (saved) {
+      try {
+        chatMessages = JSON.parse(saved);
+      } catch (e) {
+        chatMessages = [...DEFAULT_CHAT_MESSAGES];
+      }
+    } else {
+      chatMessages = [...DEFAULT_CHAT_MESSAGES];
+    }
+    renderChatList();
+    updateChatBadge();
+  }
+}
+
+function formatRelativeTime(ts) {
+  if (!ts) return '';
+  const now = Date.now();
+  const diffMin = Math.round((now - ts) / (1000 * 60));
+  if (diffMin < 1) return 'только что';
+  if (diffMin < 60) return `${diffMin} мин назад`;
+  const diffHours = Math.round(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} ч назад`;
+  const d = new Date(ts);
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderChatList() {
+  const container = document.getElementById('chatMessagesList');
+  if (!container) return;
+
+  if (chatMessages.length === 0) {
+    container.innerHTML = `
+      <div class="p-6 text-center text-slate-500 text-xs">
+        <span class="text-2xl">💬</span>
+        <p class="mt-2">Пока нет сообщений в чате экипажа.<br>Задайте первый вопрос или сомнение!</p>
+      </div>
+    `;
+    return;
+  }
+
+  const currentUser = getUserName() || 'Друг';
+
+  let html = '';
+  chatMessages.forEach(msg => {
+    const isMe = msg.author && (msg.author.trim().toLowerCase() === currentUser.trim().toLowerCase());
+    const timeStr = formatRelativeTime(msg.timestamp);
+
+    const rx = msg.reactions || {};
+    const rxThumbs = rx['👍'] || [];
+    const rxWarn = rx['⚠️'] || [];
+    const rxDone = rx['✅'] || [];
+
+    const hasMyThumb = rxThumbs.includes(currentUser);
+    const hasMyWarn = rxWarn.includes(currentUser);
+    const hasMyDone = rxDone.includes(currentUser);
+
+    html += `
+      <div class="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-3 text-xs transition shadow-sm space-y-2 group">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <div class="w-6 h-6 rounded-full ${isMe ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-200'} font-bold text-[10px] flex items-center justify-center shrink-0">
+              ${escapeHtml((msg.author || 'Д')[0].toUpperCase())}
+            </div>
+            <span class="font-bold text-white text-[11px]">${escapeHtml(msg.author || 'Друг')}</span>
+            ${isMe ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Вы</span>' : ''}
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] text-slate-500">${timeStr}</span>
+            <button type="button" onclick="deleteChatMessage('${msg.id}')" title="Удалить сообщение" class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-rose-400 p-0.5 rounded text-[11px] cursor-pointer">
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <p class="text-slate-200 text-xs leading-relaxed whitespace-pre-wrap">${escapeHtml(msg.text)}</p>
+
+        ${msg.systemAnswer ? `
+          <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5 text-[11px] text-emerald-200 leading-relaxed space-y-1">
+            <p>${escapeHtml(msg.systemAnswer)}</p>
+          </div>
+        ` : ''}
+
+        <div class="flex items-center space-x-1.5 pt-0.5">
+          <button type="button" onclick="toggleChatReaction('${msg.id}', '👍')" class="px-2 py-1 rounded-lg text-[10px] font-medium transition flex items-center space-x-1 border cursor-pointer ${hasMyThumb ? 'bg-blue-600/30 border-blue-500 text-blue-300' : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white'}">
+            <span>👍</span>
+            <span>${rxThumbs.length || ''}</span>
+          </button>
+          <button type="button" onclick="toggleChatReaction('${msg.id}', '⚠️')" class="px-2 py-1 rounded-lg text-[10px] font-medium transition flex items-center space-x-1 border cursor-pointer ${hasMyWarn ? 'bg-amber-600/30 border-amber-500 text-amber-300' : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white'}">
+            <span>⚠️</span>
+            <span>${rxWarn.length || ''}</span>
+          </button>
+          <button type="button" onclick="toggleChatReaction('${msg.id}', '✅')" class="px-2 py-1 rounded-lg text-[10px] font-medium transition flex items-center space-x-1 border cursor-pointer ${hasMyDone ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300' : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white'}">
+            <span>✅ Решено</span>
+            <span>${rxDone.length || ''}</span>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+async function handleSendChatMessage(event) {
+  event.preventDefault();
+  const input = document.getElementById('chatMessageInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  const author = getUserName() || 'Друг';
+  const newMsg = {
+    id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    author: author,
+    text: text,
+    timestamp: Date.now(),
+    reactions: {}
+  };
+
+  chatMessages.push(newMsg);
+  localStorage.setItem('tianshan_chat_messages', JSON.stringify(chatMessages));
+  input.value = '';
+
+  if (firebaseDb) {
+    try {
+      await firebaseDb.ref(`trip_discussions/${newMsg.id}`).set(newMsg);
+    } catch (e) {
+      console.warn('Firebase chat error:', e);
+    }
+  }
+
+  renderChatList();
+  updateChatBadge();
+  showToast('Мысль отправлена в чат экипажа!', 'success');
+
+  const container = document.getElementById('chatMessagesList');
+  if (container) {
+    setTimeout(() => {
+      container.scrollTop = container.scrollHeight;
+    }, 50);
+  }
+}
+
+async function toggleChatReaction(msgId, emoji) {
+  const author = getUserName() || 'Я';
+  const msg = chatMessages.find(m => m.id === msgId);
+  if (!msg) return;
+
+  if (!msg.reactions) msg.reactions = {};
+  if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+
+  const idx = msg.reactions[emoji].indexOf(author);
+  if (idx >= 0) {
+    msg.reactions[emoji].splice(idx, 1);
+  } else {
+    msg.reactions[emoji].push(author);
+  }
+
+  localStorage.setItem('tianshan_chat_messages', JSON.stringify(chatMessages));
+  if (firebaseDb) {
+    try {
+      await firebaseDb.ref(`trip_discussions/${msgId}/reactions`).set(msg.reactions);
+    } catch (e) {}
+  }
+  renderChatList();
+}
+
+async function deleteChatMessage(msgId) {
+  chatMessages = chatMessages.filter(m => m.id !== msgId);
+  localStorage.setItem('tianshan_chat_messages', JSON.stringify(chatMessages));
+  if (firebaseDb) {
+    try {
+      await firebaseDb.ref(`trip_discussions/${msgId}`).remove();
+    } catch (e) {}
+  }
+  renderChatList();
+  updateChatBadge();
+  showToast('Сообщение удалено', 'info');
+}
+
+function updateChatBadge() {
+  const badge = document.getElementById('badgeChatCount');
+  if (badge) {
+    badge.innerText = `${chatMessages.length}`;
+  }
 }
 
 
