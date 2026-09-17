@@ -596,39 +596,56 @@ function createTempPinIcon() {
 
 function startPinPlacementMode(initialLatLng = null, openModalImmediately = false) {
   isPlacementModeActive = true;
-  document.getElementById('addPointModal').classList.add('hidden');
+  const modal = document.getElementById('addPointModal');
+  if (modal) modal.classList.add('hidden');
 
-  const pos = initialLatLng || (selectedLatLngForNewPin || map.getCenter());
-  selectedLatLngForNewPin = pos;
+  let raw = initialLatLng || selectedLatLngForNewPin || (map ? map.getCenter() : { lat: 43.238949, lng: 76.889709 });
+  let lat = 43.2389, lng = 76.8897;
+  if (raw) {
+    if (typeof raw.lat === 'number' && typeof raw.lng === 'number') {
+      lat = raw.lat;
+      lng = raw.lng;
+    } else if (Array.isArray(raw)) {
+      lat = Number(raw[0]);
+      lng = Number(raw[1]);
+    } else if (raw.lat && typeof raw.lat === 'function') {
+      lat = raw.lat();
+      lng = raw.lng();
+    }
+  }
+  selectedLatLngForNewPin = { lat, lng };
 
-  if (!tempPlacementMarker) {
-    tempPlacementMarker = L.marker(pos, {
-      icon: createTempPinIcon(),
-      draggable: true,
-      zIndexOffset: 1000
-    }).addTo(map);
+  if (map) {
+    if (!tempPlacementMarker) {
+      tempPlacementMarker = L.marker([lat, lng], {
+        icon: createTempPinIcon(),
+        draggable: true,
+        zIndexOffset: 1000
+      }).addTo(map);
 
-    tempPlacementMarker.on('drag', (e) => {
-      selectedLatLngForNewPin = e.latlng;
-      updatePlacementBannerText(e.latlng);
-    });
+      tempPlacementMarker.on('drag', (e) => {
+        selectedLatLngForNewPin = { lat: e.latlng.lat, lng: e.latlng.lng };
+        updatePlacementBannerText(selectedLatLngForNewPin);
+      });
 
-    tempPlacementMarker.on('dragend', (e) => {
-      selectedLatLngForNewPin = e.target.getLatLng();
-      updatePlacementBannerText(selectedLatLngForNewPin);
-    });
+      tempPlacementMarker.on('dragend', (e) => {
+        const p = e.target.getLatLng();
+        selectedLatLngForNewPin = { lat: p.lat, lng: p.lng };
+        updatePlacementBannerText(selectedLatLngForNewPin);
+      });
 
-    tempPlacementMarker.on('click', () => {
-      confirmPinPlacement();
-    });
-  } else {
-    tempPlacementMarker.setLatLng(pos);
-    if (!map.hasLayer(tempPlacementMarker)) {
-      tempPlacementMarker.addTo(map);
+      tempPlacementMarker.on('click', () => {
+        confirmPinPlacement();
+      });
+    } else {
+      tempPlacementMarker.setLatLng([lat, lng]);
+      if (!map.hasLayer(tempPlacementMarker)) {
+        tempPlacementMarker.addTo(map);
+      }
     }
   }
 
-  updatePlacementBannerText(pos);
+  updatePlacementBannerText(selectedLatLngForNewPin);
 
   const banner = document.getElementById('placementBanner');
   if (banner) banner.classList.remove('hidden');
@@ -637,7 +654,7 @@ function startPinPlacementMode(initialLatLng = null, openModalImmediately = fals
   if (openModalImmediately) {
     confirmPinPlacement();
   } else {
-    map.panTo(pos, { animate: true });
+    if (map) map.panTo([lat, lng], { animate: true });
     showToast('Кликните по карте или перетащите маркер в нужное место', 'info');
   }
 }
@@ -645,27 +662,36 @@ function startPinPlacementMode(initialLatLng = null, openModalImmediately = fals
 function updatePlacementBannerText(latlng) {
   const textEl = document.getElementById('placementCoordText');
   if (textEl && latlng) {
-    textEl.innerText = `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`;
+    const lat = typeof latlng.lat === 'function' ? latlng.lat() : Number(latlng.lat || 0);
+    const lng = typeof latlng.lng === 'function' ? latlng.lng() : Number(latlng.lng || 0);
+    textEl.innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   }
 }
 
 function moveTempMarker(latlng) {
-  selectedLatLngForNewPin = latlng;
+  if (!latlng) return;
+  const lat = typeof latlng.lat === 'function' ? latlng.lat() : Number(latlng.lat || 0);
+  const lng = typeof latlng.lng === 'function' ? latlng.lng() : Number(latlng.lng || 0);
+  selectedLatLngForNewPin = { lat, lng };
   if (tempPlacementMarker) {
-    tempPlacementMarker.setLatLng(latlng);
+    tempPlacementMarker.setLatLng([lat, lng]);
   } else {
-    startPinPlacementMode(latlng, false);
+    startPinPlacementMode([lat, lng], false);
   }
-  updatePlacementBannerText(latlng);
+  updatePlacementBannerText(selectedLatLngForNewPin);
 }
 
 function confirmPinPlacement() {
   if (!selectedLatLngForNewPin && tempPlacementMarker) {
-    selectedLatLngForNewPin = tempPlacementMarker.getLatLng();
+    const p = tempPlacementMarker.getLatLng();
+    selectedLatLngForNewPin = { lat: p.lat, lng: p.lng };
   }
-  if (!selectedLatLngForNewPin) {
-    selectedLatLngForNewPin = map.getCenter();
+  if (!selectedLatLngForNewPin && map) {
+    const c = map.getCenter();
+    selectedLatLngForNewPin = { lat: c.lat, lng: c.lng };
   }
+
+  isPlacementModeActive = false;
 
   const banner = document.getElementById('placementBanner');
   if (banner) banner.classList.add('hidden');
@@ -675,7 +701,7 @@ function confirmPinPlacement() {
 
 function cancelPinPlacement() {
   isPlacementModeActive = false;
-  if (tempPlacementMarker && map.hasLayer(tempPlacementMarker)) {
+  if (tempPlacementMarker && map && map.hasLayer(tempPlacementMarker)) {
     map.removeLayer(tempPlacementMarker);
   }
   tempPlacementMarker = null;
@@ -685,59 +711,83 @@ function cancelPinPlacement() {
 }
 
 function adjustPinOnMap() {
-  document.getElementById('addPointModal').classList.add('hidden');
+  const modal = document.getElementById('addPointModal');
+  if (modal) modal.classList.add('hidden');
   startPinPlacementMode(selectedLatLngForNewPin, false);
 }
 
 function openAddPointModal(latlng = null) {
-  if (latlng) {
-    selectedLatLngForNewPin = latlng;
-  } else if (!selectedLatLngForNewPin) {
-    selectedLatLngForNewPin = map.getCenter();
-  }
-
-  // Держим маркер на карте, чтобы пользователь видел выбранную локацию
-  if (!tempPlacementMarker) {
-    tempPlacementMarker = L.marker(selectedLatLngForNewPin, {
-      icon: createTempPinIcon(),
-      draggable: true,
-      zIndexOffset: 1000
-    }).addTo(map);
-
-    tempPlacementMarker.on('drag', (e) => {
-      selectedLatLngForNewPin = e.latlng;
-      updatePlacementBannerText(e.latlng);
-    });
-    tempPlacementMarker.on('dragend', (e) => {
-      selectedLatLngForNewPin = e.target.getLatLng();
-      updatePlacementBannerText(selectedLatLngForNewPin);
-    });
-    tempPlacementMarker.on('click', () => {
-      confirmPinPlacement();
-    });
-  } else {
-    tempPlacementMarker.setLatLng(selectedLatLngForNewPin);
-    if (!map.hasLayer(tempPlacementMarker)) {
-      tempPlacementMarker.addTo(map);
+  try {
+    let lat = 43.2389, lng = 76.8897;
+    const raw = latlng || selectedLatLngForNewPin || (map ? map.getCenter() : null);
+    if (raw) {
+      if (typeof raw.lat === 'number' && typeof raw.lng === 'number') {
+        lat = raw.lat;
+        lng = raw.lng;
+      } else if (Array.isArray(raw)) {
+        lat = Number(raw[0]);
+        lng = Number(raw[1]);
+      } else if (raw.lat && typeof raw.lat === 'function') {
+        lat = raw.lat();
+        lng = raw.lng();
+      }
     }
+    selectedLatLngForNewPin = { lat, lng };
+
+    // Держим маркер на карте, чтобы пользователь видел выбранную локацию
+    if (map) {
+      if (!tempPlacementMarker) {
+        tempPlacementMarker = L.marker([lat, lng], {
+          icon: createTempPinIcon(),
+          draggable: true,
+          zIndexOffset: 1000
+        }).addTo(map);
+
+        tempPlacementMarker.on('drag', (e) => {
+          selectedLatLngForNewPin = { lat: e.latlng.lat, lng: e.latlng.lng };
+          updatePlacementBannerText(selectedLatLngForNewPin);
+        });
+        tempPlacementMarker.on('dragend', (e) => {
+          const p = e.target.getLatLng();
+          selectedLatLngForNewPin = { lat: p.lat, lng: p.lng };
+          updatePlacementBannerText(selectedLatLngForNewPin);
+        });
+        tempPlacementMarker.on('click', () => {
+          confirmPinPlacement();
+        });
+      } else {
+        tempPlacementMarker.setLatLng([lat, lng]);
+        if (!map.hasLayer(tempPlacementMarker)) {
+          tempPlacementMarker.addTo(map);
+        }
+      }
+    }
+
+    const modal = document.getElementById('addPointModal');
+    const coordHint = document.getElementById('modalCoordHint');
+
+    if (coordHint) {
+      coordHint.innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+
+    setTimeout(() => {
+      const input = document.getElementById('pinTitle');
+      if (input) input.focus();
+    }, 100);
+  } catch (e) {
+    console.error('Error opening add point modal:', e);
+    const modal = document.getElementById('addPointModal');
+    if (modal) modal.classList.remove('hidden');
   }
-
-  const modal = document.getElementById('addPointModal');
-  const coordHint = document.getElementById('modalCoordHint');
-
-  if (coordHint) {
-    coordHint.innerText = `${selectedLatLngForNewPin.lat.toFixed(4)}, ${selectedLatLngForNewPin.lng.toFixed(4)}`;
-  }
-
-  modal.classList.remove('hidden');
-  setTimeout(() => {
-    const input = document.getElementById('pinTitle');
-    if (input) input.focus();
-  }, 100);
 }
 
 function closeAddPointModal() {
-  document.getElementById('addPointModal').classList.add('hidden');
+  const modal = document.getElementById('addPointModal');
+  if (modal) modal.classList.add('hidden');
   cancelPinPlacement();
 }
 

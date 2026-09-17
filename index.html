@@ -205,8 +205,8 @@
   </main>
 
   <!-- MODAL 1: ADD COMMUNITY POINT -->
-  <div id="addPointModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl">
+  <div id="addPointModal" onclick="if(event.target === this) closeAddPointModal()" class="hidden fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto my-auto">
       
       <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
         <div class="flex items-center space-x-2">
@@ -292,8 +292,8 @@
   </div>
 
   <!-- MODAL 2: DRIVER MEMO & BORDER RULES -->
-  <div id="driverMemoModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+  <div id="driverMemoModal" onclick="if(event.target === this) closeMemoModal()" class="hidden fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto my-auto">
       
       <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
         <div class="flex items-center space-x-2">
@@ -345,8 +345,8 @@
   </div>
 
   <!-- MODAL 4: ШУТОЧНАЯ РУЛЕТКА «КТО ПОЕДЕТ БЕЗ ТРУСОВ?» -->
-  <div id="rouletteModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-pink-500/40 rounded-3xl max-w-sm sm:max-w-md w-full p-5 sm:p-6 shadow-2xl text-center relative overflow-hidden my-auto">
+  <div id="rouletteModal" onclick="if(event.target === this) closeRouletteModal()" class="hidden fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-pink-500/40 rounded-3xl max-w-sm sm:max-w-md w-full p-5 sm:p-6 shadow-2xl text-center relative overflow-hidden my-auto max-h-[90vh] overflow-y-auto">
       
       <!-- Декоративные фоновые пятна -->
       <div class="absolute -top-16 -right-16 w-36 h-36 bg-pink-500/15 rounded-full blur-3xl pointer-events-none"></div>
@@ -436,7 +436,7 @@
   </div>
 
   <!-- TOAST NOTIFICATIONS -->
-  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col space-y-2 pointer-events-none"></div>
 
   <!-- SCRIPTS -->
   <!-- Firebase Realtime Database SDK (Compat) -->
