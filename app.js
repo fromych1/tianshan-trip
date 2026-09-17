@@ -8,8 +8,9 @@ let communityMarkerLayers = [];
 let currentActiveDay = 'all';
 let selectedLatLngForNewPin = null;
 
-// Хранилище точек друзей
+// Хранилище точек друзей и инстанс Firebase Realtime DB
 let communityPoints = [];
+let firebaseDb = null;
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', async () => {
@@ -319,8 +320,98 @@ function renderTimeline() {
 }
 
 // 6. Управление точками от друзей (Community POIs)
+function initFirebaseIfAvailable() {
+  if (typeof firebase !== 'undefined' && typeof isFirebaseConfigured === 'function' && isFirebaseConfigured()) {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+      firebaseDb = firebase.database();
+      console.log('✅ Firebase Realtime Database успешно подключен!');
+      return true;
+    } catch (e) {
+      console.warn('⚠️ Ошибка инициализации Firebase:', e);
+      return false;
+    }
+  }
+  return false;
+}
+
+const DEFAULT_COMMUNITY_SEEDS = [
+  {
+    id: 'seed_1',
+    title: 'Форелевое хозяйство с беседками над водой',
+    category: 'food',
+    author: 'Алексей',
+    note: 'В Григорьевском ущелье. Вылавливают живую рыбу и жарят при вас на садже. Очень сочно!',
+    lat: 42.742,
+    lng: 77.468,
+    day: 7,
+    likes: 4,
+    created_at: '2026-09-17'
+  },
+  {
+    id: 'seed_2',
+    title: 'Смотровая на закат над лабиринтом Сказки',
+    category: 'photo',
+    author: 'Алина',
+    note: 'Если подняться на хребет чуть правее входа в каньон, видно и красные скалы, и бирюзовый Иссык-Куль!',
+    lat: 42.161,
+    lng: 77.362,
+    day: 10,
+    likes: 6,
+    created_at: '2026-09-17'
+  },
+  {
+    id: 'seed_3',
+    title: 'Глэмпинг на диком южном берегу',
+    category: 'hotel',
+    author: 'Данияр',
+    note: 'Теплые юрты со стеклянным куполом прямо на песчаном пляже возле Боконбаево. Видно звезды!',
+    lat: 42.125,
+    lng: 77.012,
+    day: 10,
+    likes: 5,
+    created_at: '2026-09-17'
+  }
+];
+
+function seedDefaultPointsToFirebase(pointsRef) {
+  const updates = {};
+  DEFAULT_COMMUNITY_SEEDS.forEach(s => {
+    updates[s.id] = s;
+  });
+  pointsRef.set(updates);
+}
+
 async function loadCommunityPoints() {
-  // 1. Попытка загрузить свежие точки с локального/удаленного сервера
+  // 1. Попытка подключения к облачной базе Firebase Realtime Database
+  if (initFirebaseIfAvailable() && firebaseDb) {
+    const pointsRef = firebaseDb.ref('community_points');
+
+    // Подписка на живые обновления (WebSockets): мгновенное появление меток друзей на карте!
+    pointsRef.on('value', (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        if (Array.isArray(val)) {
+          communityPoints = val.filter(Boolean);
+        } else {
+          communityPoints = Object.values(val);
+        }
+      } else {
+        // Если база пустая, загружаем базовые точки
+        seedDefaultPointsToFirebase(pointsRef);
+        communityPoints = [...DEFAULT_COMMUNITY_SEEDS];
+      }
+      localStorage.setItem('tianshan_community_points', JSON.stringify(communityPoints));
+      renderCommunityMarkersOnMap();
+      renderCommunityList();
+      updateStats();
+    });
+    return;
+  }
+
+  // 2. Попытка загрузить свежие точки с локального Python-сервера (server.py)
   try {
     const res = await fetch('/api/points', { cache: 'no-store' });
     if (res.ok) {
@@ -332,10 +423,10 @@ async function loadCommunityPoints() {
       }
     }
   } catch (e) {
-    // Сервер не запущен (статический хостинг) — штатный переход на localStorage
+    // Сервер не запущен — штатный переход на локальное хранилище
   }
 
-  // 2. Резервный источник: localStorage браузера
+  // 3. Резервный источник: localStorage браузера
   const local = localStorage.getItem('tianshan_community_points');
   if (local) {
     try {
@@ -345,46 +436,9 @@ async function loadCommunityPoints() {
     }
   }
 
-  // 3. Если список пуст, добавляем пару красивых стартовых идей от друзей
+  // 4. Если список пуст, добавляем стартовые идеи
   if (communityPoints.length === 0) {
-    communityPoints = [
-      {
-        id: 'seed_1',
-        title: 'Форелевое хозяйство с беседками над водой',
-        category: 'food',
-        author: 'Алексей',
-        note: 'В Григорьевском ущелье. Вылавливают живую рыбу и жарят при вас на садже. Очень сочно!',
-        lat: 42.742,
-        lng: 77.468,
-        day: 7,
-        likes: 4,
-        created_at: '2026-09-17'
-      },
-      {
-        id: 'seed_2',
-        title: 'Смотровая на закат над лабиринтом Сказки',
-        category: 'photo',
-        author: 'Алина',
-        note: 'Если подняться на хребет чуть правее входа в каньон, видно и красные скалы, и бирюзовый Иссык-Куль!',
-        lat: 42.161,
-        lng: 77.362,
-        day: 10,
-        likes: 6,
-        created_at: '2026-09-17'
-      },
-      {
-        id: 'seed_3',
-        title: 'Глэмпинг на диком южном берегу',
-        category: 'hotel',
-        author: 'Данияр',
-        note: 'Теплые юрты со стеклянным куполом прямо на песчаном пляже возле Боконбаево. Видно звезды!',
-        lat: 42.125,
-        lng: 77.012,
-        day: 10,
-        likes: 5,
-        created_at: '2026-09-17'
-      }
-    ];
+    communityPoints = [...DEFAULT_COMMUNITY_SEEDS];
     saveCommunityPoints();
   }
 }
@@ -483,9 +537,17 @@ async function likePoint(pointId) {
     saveCommunityPoints();
     renderCommunityMarkersOnMap();
     renderCommunityList();
-    showToast(`Ваш голос учтен за точку «${p.title}»!`, 'success');
+    // 1. Синхронизация с облачной базой Firebase Realtime Database
+    if (firebaseDb) {
+      try {
+        firebaseDb.ref(`community_points/${pointId}/likes`).transaction(l => (l || 0) + 1);
+        return;
+      } catch (e) {
+        console.warn('Firebase like error:', e);
+      }
+    }
 
-    // Синхронизация с локальным/удаленным сервером (если запущен)
+    // 2. Синхронизация с локальным/удаленным сервером (если запущен)
     try {
       await fetch('/api/points/like', {
         method: 'POST',
@@ -569,7 +631,17 @@ async function submitNewPoint(event) {
   // Фокусировка на созданной точке
   focusPoint([lat, lng], title);
 
-  // Синхронизация с сервером
+  // 1. Синхронизация с облачной базой Firebase Realtime Database
+  if (firebaseDb) {
+    try {
+      firebaseDb.ref(`community_points/${newPoint.id}`).set(newPoint);
+      return;
+    } catch (e) {
+      console.warn('Firebase submit error:', e);
+    }
+  }
+
+  // 2. Синхронизация с локальным Python-сервером (server.py)
   try {
     await fetch('/api/points', {
       method: 'POST',
