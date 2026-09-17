@@ -3,7 +3,7 @@
 ## 1. Active Phase
 - **Phase:** Live in Production (Deployed)
 - **Date:** 2026-09-17
-- **Version:** v1.4.0
+- **Version:** v1.5.0
 - **Production URL:** https://fromych1.github.io/tianshan-trip/
 - **Cloud Database:** Firebase Realtime Database (`pupupu-d3289`, Belgium `europe-west1`)
 
@@ -28,6 +28,7 @@
 - [x] Resolved Leaflet map vs modal z-index stacking conflict (`z-[9999]`), ensuring all modals open in front of the map.
 - [x] Replaced CartoDB basemap with clean OpenStreetMap (roads), Esri Topo (mountains), and Esri Satellite (satellite imagery) layers without watermarks or API keys.
 - [x] Fixed mobile portrait initial map bounds (`invalidateSize` + responsive `fitBounds`) so full route is perfectly framed.
+- [x] Fixed mobile layout overlap bug: removed rigid `min-height: 380px` on `#map`, made header action buttons responsive, and added mobile view switcher (`🗺️ Карта`, `🌗 50/50`, `📋 Дни`) with auto-switch to map when tapping stops.
 
 ## 3. Verification
 - Live URL HTTP Status: 200 OK
