@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Большой Тянь-Шаньский круг — Автоэкспедиция 2026</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <style>
+    /* Кастомные полосы прокрутки */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Пульсирующий маркер для точек друзей */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+    .pulse-amber {
+      animation: pulse-ring 2s infinite;
+    }
+
+    /* Адаптивная высота карты */
+    #map {
+      height: 100%;
+      width: 100%;
+      min-height: 380px;
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border-radius: 1rem !important;
+      border: 1px solid #334155 !important;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5) !important;
+    }
+    .leaflet-popup-tip {
+      background: #0f172a !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- TOP APP HEADER -->
+  <header class="bg-slate-900/95 border-b border-slate-800 backdrop-blur z-30 flex-shrink-0">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+      
+      <!-- Логотип и заголовок -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold text-lg flex-shrink-0">
+          🚗
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-sm sm:text-base font-bold text-white tracking-tight">Тянь-Шань Экспедиция</h1>
+            <span class="px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 text-[10px] font-bold border border-blue-700/50">14 дней</span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Караганда ➔ Алматы ➔ Иссык-Куль ➔ Бишкек (~3 340 км)</p>
+        </div>
+      </div>
+
+      <!-- Главные действия -->
+      <div class="flex items-center space-x-2">
+        <!-- Кнопка добавления точки (Главная для друзей!) -->
+        <button onclick="openAddPointModal()" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition flex items-center space-x-1.5 pulse-amber">
+          <span>💡</span>
+          <span class="font-extrabold">+ Предложить место</span>
+        </button>
+
+        <!-- Поделиться ссылкой -->
+        <button onclick="shareTripLink()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center space-x-1" title="Поделиться картой с друзьями">
+          <span>🔗</span>
+          <span class="hidden md:inline">Поделиться</span>
+        </button>
+
+        <!-- Скачать GPX -->
+        <button onclick="downloadTripGPX()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center space-x-1" title="Скачать GPX для Organic Maps / 2ГИС">
+          <span>📥</span>
+          <span class="hidden md:inline">GPX трек</span>
+        </button>
+
+        <!-- Памятка водителю -->
+        <button onclick="openMemoModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center space-x-1" title="Памятка водителю: граница, документы, ПДД">
+          <span>📋</span>
+          <span class="hidden lg:inline">Памятка</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Навигационные чипсы по дням (горизонтальный скролл) -->
+    <div class="border-t border-slate-850 px-3 sm:px-6 py-2 overflow-x-auto flex items-center space-x-2" id="dayFilterChips">
+      <!-- Генерируется из app.js -->
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT: SPLIT VIEW (TIMELINE SIDEBAR + FULL LEAFLET MAP) -->
+  <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+
+    <!-- SIDEBAR: Дни и Идеи от друзей -->
+    <aside class="w-full md:w-[420px] lg:w-[460px] bg-slate-950 border-r border-slate-800/80 flex flex-col flex-shrink-0 z-20 h-1/2 md:h-full overflow-hidden order-2 md:order-1">
+      
+      <!-- Вкладки сайдбара: Маршрут / Идеи друзей -->
+      <div class="flex items-center border-b border-slate-800 bg-slate-900/80 p-2 gap-2 flex-shrink-0">
+        <button id="tabBtnRoute" onclick="switchSidebarTab('route')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-blue-600 transition flex items-center justify-center space-x-1.5">
+          <span>🗓️</span>
+          <span>Маршрут по дням</span>
+        </button>
+        <button id="tabBtnCommunity" onclick="switchSidebarTab('community')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1.5">
+          <span>💡</span>
+          <span>Идеи от друзей</span>
+          <span id="badgeFriendsCount" class="ml-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black">3</span>
+        </button>
+      </div>
+
+      <!-- Вкладка 1: Карточки дней -->
+      <div id="tabContentRoute" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
+        <!-- Статистика поездки -->
+        <div class="grid grid-cols-3 gap-2 mb-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800/80 text-center">
+          <div>
+            <span class="text-[10px] text-slate-400 uppercase font-semibold block">Маршрут</span>
+            <span id="statTotalKm" class="text-xs sm:text-sm font-bold text-blue-400">3 340 км</span>
+          </div>
+          <div class="border-x border-slate-800">
+            <span class="text-[10px] text-slate-400 uppercase font-semibold block">Дней</span>
+            <span id="statTotalDays" class="text-xs sm:text-sm font-bold text-white">14 дней</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-400 uppercase font-semibold block">Идей друзей</span>
+            <span id="statFriendsPins" class="text-xs sm:text-sm font-bold text-amber-400">3</span>
+          </div>
+        </div>
+
+        <!-- Контейнер карточек по дням -->
+        <div id="timelineCards">
+          <!-- Генерируется из app.js -->
+        </div>
+      </div>
+
+      <!-- Вкладка 2: Идеи от друзей -->
+      <div id="tabContentCommunity" class="hidden flex-1 overflow-y-auto p-3 sm:p-4">
+        <div class="mb-3 p-3 bg-amber-950/40 border border-amber-500/30 rounded-2xl text-xs text-amber-200">
+          <p class="font-bold mb-1">💡 Народная карта поездки</p>
+          <p class="text-[11px] text-amber-300/80 leading-relaxed">
+            Здесь собраны кафе, смотровые площадки и места ночлега, предложенные вашими друзьями. Ставьте лайки за лучшие варианты!
+          </p>
+        </div>
+
+        <div id="communityPointsList">
+          <!-- Генерируется из app.js -->
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- RIGHT: INTERACTIVE MAP CONTAINER -->
+    <section class="flex-1 relative order-1 md:order-2 h-1/2 md:h-full">
+      <div id="map"></div>
+
+      <!-- Плавающая подсказка на карте -->
+      <div class="absolute bottom-4 left-4 z-[1000] bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700/80 text-[11px] text-slate-300 shadow-xl hidden sm:flex items-center space-x-2 pointer-events-none">
+        <span>💡</span>
+        <span>Кликните в любое место на карте, чтобы предложить новую точку</span>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: ADD COMMUNITY POINT -->
+  <div id="addPointModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl">
+      
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <span class="text-xl">💡</span>
+          <div>
+            <h3 class="text-sm font-bold text-white">Предложить точку на маршруте</h3>
+            <p id="modalCoordHint" class="text-[10px] text-slate-400">Координаты определены по клику на карте</p>
+          </div>
+        </div>
+        <button onclick="closeAddPointModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
+
+      <form onsubmit="submitNewPoint(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Название места *</label>
+          <input type="text" id="pinTitle" placeholder="Например: Кафе с форелью на углях" required
+                 class="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Ваше имя (Кто автор) *</label>
+            <input type="text" id="pinAuthor" placeholder="Алексей" required
+                   class="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Категория</label>
+            <select id="pinCategory" class="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 outline-none">
+              <option value="food">🍽️ Еда / Кафе</option>
+              <option value="photo">📸 Смотровая / Фото</option>
+              <option value="hotel">🏕️ Ночлег / Глэмпинг</option>
+              <option value="spot">🎯 Локация / Секретное место</option>
+              <option value="tip">⚠️ Важный совет</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">К какому дню относится</label>
+          <select id="pinDay" class="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 outline-none">
+            <option value="all">🌍 Общий список (без привязки к дню)</option>
+            <option value="1">День 1: Караганда — Балхаш</option>
+            <option value="2">День 2: Балхаш — Алматы</option>
+            <option value="3">День 3: Алматы (Медеу/Шымбулак)</option>
+            <option value="4">День 4: Чарынский каньон</option>
+            <option value="5">День 5: Кольсай & Каинды</option>
+            <option value="6">День 6: Переезд на Иссык-Куль</option>
+            <option value="7">День 7: Григорьевское ущелье</option>
+            <option value="8">День 8: Каракол & Источники</option>
+            <option value="9">День 9: Джеты-Огуз & Барскоон</option>
+            <option value="10">День 10: Каньон Сказка & Боконбаево</option>
+            <option value="11">День 11: Башня Бурана — Бишкек</option>
+            <option value="12">День 12: Ала-Арча</option>
+            <option value="13">День 13: Бишкек — Балхаш</option>
+            <option value="14">День 14: Балхаш — Караганда</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Заметка или отзыв</label>
+          <textarea id="pinNote" rows="3" placeholder="Что там интересного? Сколько стоит, во сколько лучше ехать?"
+                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 outline-none"></textarea>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-2">
+          <button type="button" onclick="closeAddPointModal()" class="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-semibold transition">
+            Отмена
+          </button>
+          <button type="submit" class="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/30 transition">
+            Добавить на карту 🚀
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- MODAL 2: DRIVER MEMO & BORDER RULES -->
+  <div id="driverMemoModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+      
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <span class="text-xl">📋</span>
+          <h3 class="text-sm font-bold text-white">Памятка водителю: Казахстан — Кыргызстан</h3>
+        </div>
+        <button onclick="closeMemoModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <h4 class="font-bold text-blue-400 mb-1.5">🪪 Необходимые документы:</h4>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li>Удостоверение личности или загранпаспорт РК (детям — загранпаспорт).</li>
+            <li>Техпаспорт (СРТС) на автомобиль.</li>
+            <li>Водительское удостоверение.</li>
+            <li><b>Нотариальная доверенность с правом выезда за пределы РК</b> (если машина оформлена на другого человека).</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-amber-400 mb-1.5">🛂 Пересечение границы:</h4>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li><b>ОСАГО Кыргызстана:</b> обязательно оформляется при въезде на границе (будки страхования перед/после КПП, стоимость ~1000–2000 тенге). Штраф за отсутствие велик.</li>
+            <li><b>Связь:</b> Сим-карты О! или Beeline KG продаются прямо на границе (пакет интернета на 14 дней ~400–600 сом).</li>
+            <li><b>Валюта:</b> Сом (KGS). Тенге меняют во всех обменниках Чолпон-Аты, Каракола и Бишкека. Карты Kaspi Gold работают не везде (лучше иметь наличные сомы).</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-emerald-400 mb-1.5">🚗 Дороги и ПДД:</h4>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li>Скоростной режим: в населенных пунктах КР — 60 км/ч, вне — 90 км/ч. Много камер «Безопасный город».</li>
+            <li>Свет фар/ДХО обязателен в любое время суток.</li>
+            <li>К озеру Каинды и в глубокие ущелья на низких седанах ехать аккуратно (в поселке Саты всегда дежурят местные УАЗики).</li>
+          </ul>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800 flex justify-end">
+          <button onclick="closeMemoModal()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition">
+            Понятно, спасибо!
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- SCRIPTS -->
+  <script src="route_data.js"></script>
+  <script src="gpx_exporter.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // Переключение вкладок сайдбара
+    function switchSidebarTab(tabName) {
+      const btnRoute = document.getElementById('tabBtnRoute');
+      const btnCommunity = document.getElementById('tabBtnCommunity');
+      const contentRoute = document.getElementById('tabContentRoute');
+      const contentCommunity = document.getElementById('tabContentCommunity');
+
+      if (tabName === 'route') {
+        btnRoute.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-blue-600 transition flex items-center justify-center space-x-1.5';
+        btnCommunity.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1.5';
+        contentRoute.classList.remove('hidden');
+        contentCommunity.classList.add('hidden');
+      } else {
+        btnCommunity.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-amber-600 transition flex items-center justify-center space-x-1.5';
+        btnRoute.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 transition flex items-center justify-center space-x-1.5';
+        contentCommunity.classList.remove('hidden');
+        contentRoute.classList.add('hidden');
+        renderCommunityList();
+      }
+    }
+  </script>
+</body>
+</html>
