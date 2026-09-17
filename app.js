@@ -899,6 +899,7 @@ function setupEventListeners() {
     if (e.key === 'Escape') {
       closeAddPointModal();
       closeMemoModal();
+      closeRouletteModal();
     }
   });
 }
@@ -967,4 +968,296 @@ function lockApp() {
   checkAuthGate();
   showToast('Приложение заблокировано 🔒', 'info');
 }
+
+// 10. Шуточная рулетка: «Кто поедет без трусов?»
+const ROULETTE_PARTICIPANTS = [
+  { name: 'Полина', color: '#ec4899', textColor: '#ffffff', weight: 60, joke: 'Колеса судьбы неумолимы! Готовься ощутить горный бриз Тянь-Шаня во всей красе! 🌬️🩲' },
+  { name: 'Влад', color: '#3b82f6', textColor: '#ffffff', weight: 8, joke: 'Аэродинамика +100 к скорости на перевале! Главное — не садись на горячую кожу! 🏎️💨' },
+  { name: 'Илья', color: '#10b981', textColor: '#ffffff', weight: 8, joke: 'Максимальное единение с дикой природой Иссык-Куля разблокировано! 🏔️🦅' },
+  { name: 'Лена', color: '#8b5cf6', textColor: '#ffffff', weight: 8, joke: 'Штраф за нарушение дресс-кода отменяется — это суверенное решение рулетки! ⚖️✨' },
+  { name: 'Рома', color: '#f59e0b', textColor: '#ffffff', weight: 8, joke: 'Капитан корабля подает пример истинного бесстрашия всему экипажу! 🫡⛵' },
+  { name: 'Карина', color: '#06b6d4', textColor: '#ffffff', weight: 8, joke: 'Экстремальная высокогорная вентиляция по спецпропуску! 🧊😎' }
+];
+
+let rouletteCurrentAngle = 0;
+let isRouletteSpinning = false;
+let rouletteAudioCtx = null;
+
+function openRouletteModal() {
+  const modal = document.getElementById('rouletteModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  drawRouletteWheel(rouletteCurrentAngle);
+}
+
+function closeRouletteModal() {
+  const modal = document.getElementById('rouletteModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function drawRouletteWheel(angle = 0) {
+  const canvas = document.getElementById('rouletteCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = width / 2 - 10;
+  const count = ROULETTE_PARTICIPANTS.length;
+  const sliceAngle = (2 * Math.PI) / count;
+
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(angle);
+
+  // Сектора
+  for (let i = 0; i < count; i++) {
+    const p = ROULETTE_PARTICIPANTS[i];
+    const startAngle = i * sliceAngle;
+    const endAngle = startAngle + sliceAngle;
+
+    // Сектор
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = p.color;
+    ctx.fill();
+
+    // Границы
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#0f172a';
+    ctx.stroke();
+
+    // Текст имени
+    ctx.save();
+    ctx.rotate(startAngle + sliceAngle / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = p.textColor;
+    ctx.font = 'bold 14px sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(p.name, radius - 20, 5);
+    ctx.restore();
+  }
+
+  // Декоративные точки по ободу
+  const dotsCount = 24;
+  for (let d = 0; d < dotsCount; d++) {
+    const dotAngle = (d * 2 * Math.PI) / dotsCount;
+    const dotX = (radius + 4) * Math.cos(dotAngle);
+    const dotY = (radius + 4) * Math.sin(dotAngle);
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 2.5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#fef08a';
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function playRouletteTick() {
+  try {
+    if (!rouletteAudioCtx) {
+      rouletteAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (rouletteAudioCtx.state === 'suspended') {
+      rouletteAudioCtx.resume();
+    }
+    const osc = rouletteAudioCtx.createOscillator();
+    const gain = rouletteAudioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(440, rouletteAudioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(120, rouletteAudioCtx.currentTime + 0.03);
+    gain.gain.setValueAtTime(0.12, rouletteAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, rouletteAudioCtx.currentTime + 0.03);
+    osc.connect(gain);
+    gain.connect(rouletteAudioCtx.destination);
+    osc.start();
+    osc.stop(rouletteAudioCtx.currentTime + 0.035);
+  } catch (e) {}
+}
+
+function playRouletteWinFanfare() {
+  try {
+    if (!rouletteAudioCtx) {
+      rouletteAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (rouletteAudioCtx.state === 'suspended') {
+      rouletteAudioCtx.resume();
+    }
+    const notes = [440, 554.37, 659.25, 880];
+    notes.forEach((freq, idx) => {
+      const osc = rouletteAudioCtx.createOscillator();
+      const gain = rouletteAudioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, rouletteAudioCtx.currentTime + idx * 0.09);
+      gain.gain.setValueAtTime(0.18, rouletteAudioCtx.currentTime + idx * 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.001, rouletteAudioCtx.currentTime + idx * 0.09 + 0.28);
+      osc.connect(gain);
+      gain.connect(rouletteAudioCtx.destination);
+      osc.start(rouletteAudioCtx.currentTime + idx * 0.09);
+      osc.stop(rouletteAudioCtx.currentTime + idx * 0.09 + 0.3);
+    });
+  } catch (e) {}
+}
+
+function launchConfetti() {
+  const canvas = document.getElementById('rouletteCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+  const colors = ['#ec4899', '#f59e0b', '#3b82f6', '#10b981', '#a855f7', '#ffffff'];
+
+  for (let i = 0; i < 45; i++) {
+    particles.push({
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      vx: (Math.random() - 0.5) * 12,
+      vy: (Math.random() - 0.5) * 12 - 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 6 + 3,
+      alpha: 1
+    });
+  }
+
+  let frame = 0;
+  function animateConfetti() {
+    frame++;
+    drawRouletteWheel(rouletteCurrentAngle);
+
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.2; // gravity
+      p.alpha -= 0.02;
+
+      if (p.alpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+        ctx.restore();
+      }
+    });
+
+    if (frame < 50) {
+      requestAnimationFrame(animateConfetti);
+    } else {
+      drawRouletteWheel(rouletteCurrentAngle);
+    }
+  }
+
+  animateConfetti();
+}
+
+function spinRoulette() {
+  if (isRouletteSpinning) return;
+  isRouletteSpinning = true;
+
+  const spinBtn = document.getElementById('rouletteSpinBtn');
+  const centerBtn = document.getElementById('rouletteCenterBtn');
+  const titleEl = document.getElementById('rouletteResultTitle');
+  const quoteEl = document.getElementById('rouletteResultQuote');
+
+  if (spinBtn) {
+    spinBtn.disabled = true;
+    spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  }
+  if (centerBtn) centerBtn.disabled = true;
+
+  if (titleEl) titleEl.innerText = '🌀 Барабан судьбы раскручивается...';
+  if (quoteEl) quoteEl.innerText = 'Кому же выпадет этот почётный жребий?';
+
+  // Взвешенный выбор победителя (Полина: 60%, остальные: по 8%)
+  const rand = Math.random() * 100;
+  let cumulative = 0;
+  let winnerIndex = 0;
+  for (let i = 0; i < ROULETTE_PARTICIPANTS.length; i++) {
+    cumulative += ROULETTE_PARTICIPANTS[i].weight;
+    if (rand < cumulative) {
+      winnerIndex = i;
+      break;
+    }
+  }
+
+  const winner = ROULETTE_PARTICIPANTS[winnerIndex];
+  const count = ROULETTE_PARTICIPANTS.length;
+  const sliceAngle = (2 * Math.PI) / count;
+
+  // Расчет целевого угла:
+  // Стрелка находится на 12 часов (угол 3*PI/2 = 270 deg)
+  // Центр сектора i: (i + 0.5) * sliceAngle
+  // targetAngle = 3*PI/2 - (i + 0.5) * sliceAngle
+  // Добавляем небольшое случайное смещение внутри сектора (+- sliceAngle * 0.3)
+  const jitter = (Math.random() - 0.5) * sliceAngle * 0.6;
+  const targetSectorCenter = (3 * Math.PI / 2) - ((winnerIndex + 0.5) * sliceAngle) + jitter;
+
+  // Нормализуем текущий угол
+  const startAngle = rouletteCurrentAngle;
+  const normalizedStart = startAngle % (2 * Math.PI);
+  let delta = (targetSectorCenter - normalizedStart) % (2 * Math.PI);
+  if (delta < 0) delta += 2 * Math.PI;
+
+  // 6 до 8 полных оборотов
+  const extraSpins = 6 + Math.floor(Math.random() * 3);
+  const totalRotation = delta + extraSpins * (2 * Math.PI);
+  const finalAngle = startAngle + totalRotation;
+
+  const duration = 4800; // 4.8 секунды
+  const startTime = performance.now();
+  let lastSectorIndex = -1;
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function frame(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = easeOutCubic(progress);
+
+    rouletteCurrentAngle = startAngle + totalRotation * eased;
+    drawRouletteWheel(rouletteCurrentAngle);
+
+    // Звуковой тик при прохождении сектора
+    const currentSector = Math.floor((rouletteCurrentAngle / sliceAngle)) % count;
+    if (currentSector !== lastSectorIndex) {
+      lastSectorIndex = currentSector;
+      playRouletteTick();
+    }
+
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      rouletteCurrentAngle = finalAngle;
+      drawRouletteWheel(rouletteCurrentAngle);
+      isRouletteSpinning = false;
+
+      if (spinBtn) {
+        spinBtn.disabled = false;
+        spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      if (centerBtn) centerBtn.disabled = false;
+
+      playRouletteWinFanfare();
+      launchConfetti();
+
+      if (titleEl) {
+        titleEl.innerHTML = `<span class="text-pink-400 font-black text-sm uppercase">🎉 Победитель: ${winner.name}! 🩲</span>`;
+      }
+      if (quoteEl) {
+        quoteEl.innerHTML = `<span class="text-slate-200 font-medium">${winner.joke}</span>`;
+      }
+
+      showToast(`Рулетка выбрала: ${winner.name}! 🩲`, 'info');
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+
 
