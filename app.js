@@ -940,54 +940,33 @@ let currentMobileView = 'split';
 
 function setMobileView(mode) {
   currentMobileView = mode;
-  const aside = document.getElementById('sidebarAside');
-  const section = document.getElementById('mapSection');
+  document.body.setAttribute('data-mobile-view', mode);
+
   const btnMap = document.getElementById('mobileViewBtnMap');
   const btnSplit = document.getElementById('mobileViewBtnSplit');
   const btnList = document.getElementById('mobileViewBtnList');
-  if (!aside || !section) return;
 
-  [btnMap, btnSplit, btnList].forEach(b => {
-    if (b) {
-      b.classList.remove('bg-blue-600', 'text-white');
-      b.classList.add('text-slate-400');
+  const btns = { map: btnMap, split: btnSplit, list: btnList };
+  Object.keys(btns).forEach(key => {
+    const btn = btns[key];
+    if (!btn) return;
+    if (key === mode) {
+      btn.className = 'px-2 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 transition flex items-center space-x-1 cursor-pointer shadow-sm';
+    } else {
+      btn.className = 'px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition flex items-center space-x-1 cursor-pointer';
     }
   });
 
-  if (mode === 'map') {
-    if (btnMap) {
-      btnMap.classList.add('bg-blue-600', 'text-white');
-      btnMap.classList.remove('text-slate-400');
-    }
-    aside.classList.add('hidden');
-    aside.classList.remove('h-1/2', 'h-full');
-    section.classList.remove('hidden', 'h-1/2');
-    section.classList.add('h-full');
-  } else if (mode === 'list') {
-    if (btnList) {
-      btnList.classList.add('bg-blue-600', 'text-white');
-      btnList.classList.remove('text-slate-400');
-    }
-    section.classList.add('hidden');
-    section.classList.remove('h-1/2', 'h-full');
-    aside.classList.remove('hidden', 'h-1/2');
-    aside.classList.add('h-full');
-  } else {
-    // split (50/50)
-    if (btnSplit) {
-      btnSplit.classList.add('bg-blue-600', 'text-white');
-      btnSplit.classList.remove('text-slate-400');
-    }
-    aside.classList.remove('hidden', 'h-full');
-    aside.classList.add('h-1/2');
-    section.classList.remove('hidden', 'h-full');
-    section.classList.add('h-1/2');
-  }
+  // Clean up any conflicting manual classes
+  const aside = document.getElementById('sidebarAside');
+  const section = document.getElementById('mapSection');
+  if (aside) aside.classList.remove('hidden', 'h-full');
+  if (section) section.classList.remove('hidden', 'h-full');
 
   setTimeout(() => {
     if (map) {
       map.invalidateSize();
-      if (currentActiveDay === 'all') {
+      if (mode === 'map' && currentActiveDay === 'all') {
         const allBounds = L.latLngBounds();
         TRIP_DATA.days.forEach(day => day.route_points.forEach(pt => allBounds.extend(pt)));
         if (allBounds.isValid()) map.fitBounds(allBounds, { padding: [25, 25] });
@@ -1108,6 +1087,14 @@ function setupEventListeners() {
       closeRouletteModal();
     }
   });
+
+  // Кнопки переключения вида на мобильных
+  const bMap = document.getElementById('mobileViewBtnMap');
+  const bSplit = document.getElementById('mobileViewBtnSplit');
+  const bList = document.getElementById('mobileViewBtnList');
+  if (bMap) bMap.addEventListener('click', (e) => { e.preventDefault(); setMobileView('map'); });
+  if (bSplit) bSplit.addEventListener('click', (e) => { e.preventDefault(); setMobileView('split'); });
+  if (bList) bList.addEventListener('click', (e) => { e.preventDefault(); setMobileView('list'); });
 }
 
 function openMemoModal() {

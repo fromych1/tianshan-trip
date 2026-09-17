@@ -53,9 +53,46 @@
     .leaflet-popup-tip {
       background: #0f172a !important;
     }
+
+    /* Мобильные режимы отображения (только экраны < 768px) */
+    @media (max-width: 767px) {
+      /* Режим 1: Только Карта */
+      body[data-mobile-view="map"] #sidebarAside {
+        display: none !important;
+      }
+      body[data-mobile-view="map"] #mapSection {
+        display: block !important;
+        height: 100% !important;
+        flex: 1 1 100% !important;
+      }
+
+      /* Режим 2: Только Дни (Список) */
+      body[data-mobile-view="list"] #mapSection {
+        display: none !important;
+      }
+      body[data-mobile-view="list"] #sidebarAside {
+        display: flex !important;
+        height: 100% !important;
+        width: 100% !important;
+        flex: 1 1 100% !important;
+      }
+
+      /* Режим 3: Сплит 50/50 */
+      body[data-mobile-view="split"] #sidebarAside {
+        display: flex !important;
+        height: 50% !important;
+        width: 100% !important;
+        flex: 0 0 50% !important;
+      }
+      body[data-mobile-view="split"] #mapSection {
+        display: block !important;
+        height: 50% !important;
+        flex: 0 0 50% !important;
+      }
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 flex flex-col h-[100dvh] min-h-[100dvh] overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
+<body data-mobile-view="split" class="bg-slate-950 text-slate-100 flex flex-col h-[100dvh] min-h-[100dvh] overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
 
   <!-- TOP APP HEADER -->
   <header class="bg-slate-900/95 border-b border-slate-800 backdrop-blur z-30 flex-shrink-0">
@@ -127,15 +164,15 @@
 
       <!-- Мобильный переключатель вида: Карта / 50-50 / Список (только на мобильных!) -->
       <div class="flex md:hidden items-center bg-slate-900 border border-slate-700/80 rounded-xl p-0.5 shrink-0 shadow-sm ml-1">
-        <button id="mobileViewBtnMap" onclick="setMobileView('map')" class="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition flex items-center space-x-1">
+        <button type="button" id="mobileViewBtnMap" onclick="setMobileView('map')" class="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition flex items-center space-x-1 cursor-pointer">
           <span>🗺️</span>
           <span>Карта</span>
         </button>
-        <button id="mobileViewBtnSplit" onclick="setMobileView('split')" class="px-2 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 transition flex items-center space-x-1">
+        <button type="button" id="mobileViewBtnSplit" onclick="setMobileView('split')" class="px-2 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 transition flex items-center space-x-1 cursor-pointer shadow-sm">
           <span>🌗</span>
           <span>50/50</span>
         </button>
-        <button id="mobileViewBtnList" onclick="setMobileView('list')" class="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition flex items-center space-x-1">
+        <button type="button" id="mobileViewBtnList" onclick="setMobileView('list')" class="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition flex items-center space-x-1 cursor-pointer">
           <span>📋</span>
           <span>Дни</span>
         </button>
