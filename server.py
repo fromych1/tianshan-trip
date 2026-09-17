@@ -1,4 +1,4 @@
-﻿"""
+"""
 server.py — Локальный веб-сервер и API синхронизации меток друзей для TianShan RoadTrip Planner
 Работает на стандартной библиотеке Python 3 (без сторонних зависимостей pip).
 """
@@ -93,7 +93,7 @@ class RoadTripHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         # Разрешаем CORS для совместной работы
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
@@ -171,6 +171,36 @@ class RoadTripHandler(SimpleHTTPRequestHandler):
                 self.send_response(400)
                 self.end_headers()
                 self.wfile.write(str(e).encode("utf-8"))
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
+    def do_DELETE(self):
+        if self.path.startswith("/api/points"):
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            target_id = params.get("id", [None])[0]
+
+            if not target_id:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b"Missing id parameter")
+                return
+
+            points = load_points()
+            initial_count = len(points)
+            points = [p for p in points if p.get("id") != target_id]
+            save_points(points)
+
+            res = json.dumps({"status": "deleted", "id": target_id, "remaining": len(points)}, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(res)))
+            self.end_headers()
+            self.wfile.write(res)
+            print(f"[DEL] Точка ID {target_id} удалена с сервера")
             return
 
         self.send_response(404)

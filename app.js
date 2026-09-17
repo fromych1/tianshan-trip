@@ -81,21 +81,25 @@ function renderAllRoutes() {
       const marker = L.marker(stop.coord, { icon: icon }).addTo(map);
 
       const popupHtml = `
-        <div class="p-1 max-w-xs font-sans">
-          <div class="flex items-center space-x-1.5 mb-1">
+        <div class="p-1 max-w-xs font-sans text-slate-100">
+          <div class="flex items-center space-x-1.5 mb-1.5">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase" style="background-color: ${day.color}">День ${day.day}</span>
-            <span class="text-xs font-semibold text-slate-800">${stop.name}</span>
+            <span class="text-xs font-bold text-white">${escapeHtml(stop.name)}</span>
           </div>
-          <p class="text-xs text-slate-600 mb-2">${stop.note || ''}</p>
-          <div class="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+          <p class="text-xs text-slate-300 mb-2 leading-relaxed">${escapeHtml(stop.note || '')}</p>
+          <div class="flex items-center justify-between pt-1.5 border-t border-slate-800 text-[11px]">
             <span class="text-slate-400">${day.distance_km} км в пути</span>
             <a href="https://www.google.com/maps/dir/?api=1&destination=${stop.coord[0]},${stop.coord[1]}" 
-               target="_blank" class="text-blue-600 hover:underline font-medium">Маршрут в Google ➔</a>
+               target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline font-semibold flex items-center space-x-1">
+               <span>Навигатор</span>
+               <span>➔</span>
+            </a>
           </div>
         </div>
       `;
 
       marker.bindPopup(popupHtml);
+      marker.coord = stop.coord;
       markerLayers.push({ day: day.day, marker: marker });
     });
   });
@@ -455,20 +459,23 @@ function renderCommunityMarkersOnMap() {
   communityPoints.forEach(p => {
     const icon = createCommunityIcon(p.category, p.author);
     const marker = L.marker([p.lat, p.lng], { icon: icon }).addTo(map);
+    marker.pointId = p.id;
 
     const popupHtml = `
-      <div class="p-1 max-w-xs font-sans">
-        <div class="flex items-center space-x-1.5 mb-1">
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-amber-500 uppercase">💡 Идея от ${p.author}</span>
-          <span class="text-xs font-bold text-slate-800">${p.title}</span>
+      <div class="p-1 max-w-xs font-sans text-slate-100">
+        <div class="flex items-center space-x-1.5 mb-1.5">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-amber-500 uppercase">💡 Идея от ${escapeHtml(p.author || 'Друг')}</span>
+          <span class="text-xs font-bold text-white">${escapeHtml(p.title)}</span>
         </div>
-        <p class="text-xs text-slate-600 mb-2">${p.note || ''}</p>
-        <div class="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs">
-          <button onclick="likePoint('${p.id}')" class="px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold flex items-center space-x-1 transition">
+        <p class="text-xs text-slate-300 mb-2.5 leading-relaxed">${escapeHtml(p.note || '')}</p>
+        <div class="flex items-center justify-between pt-1.5 border-t border-slate-800 text-xs">
+          <button onclick="likePoint('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold border border-amber-500/30 flex items-center space-x-1 transition">
             <span>👍 Хочу сюда!</span>
             <span id="like-count-${p.id}" class="font-bold ml-1">${p.likes || 0}</span>
           </button>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" class="text-blue-600 hover:underline text-[11px]">Навигатор ➔</a>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline font-semibold text-[11px] flex items-center space-x-1">
+            <span>Навигатор ➔</span>
+          </a>
         </div>
       </div>
     `;
@@ -485,7 +492,7 @@ function renderCommunityList() {
   if (communityPoints.length === 0) {
     container.innerHTML = `
       <div class="text-center py-6 text-slate-400 text-xs">
-        Пока нет предложений от друзей. Нажмите «+ Добавить точку» или кликните в любое место на карте!
+        Пока нет предложений от друзей. Нажмите «+ Предложить место» или кликните в любое место на карте!
       </div>
     `;
     return;
@@ -501,6 +508,7 @@ function renderCommunityList() {
     else if (p.category === 'photo') catBadge = '📸 Смотровая';
     else if (p.category === 'hotel') catBadge = '🏕️ Ночлег';
     else if (p.category === 'tip') catBadge = '⚠️ Совет';
+    else if (p.category === 'spot') catBadge = '📍 Локация';
 
     html += `
       <div class="bg-slate-900/90 rounded-2xl border border-amber-500/30 p-3.5 mb-3 shadow-lg hover:border-amber-500/60 transition">
@@ -508,19 +516,24 @@ function renderCommunityList() {
           <span class="px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 bg-amber-950/80 border border-amber-500/40">
             ${catBadge}
           </span>
-          <span class="text-[11px] text-slate-400">Предложил: <b class="text-slate-200">${p.author || 'Друг'}</b></span>
+          <span class="text-[11px] text-slate-400">Предложил: <b class="text-slate-200">${escapeHtml(p.author || 'Друг')}</b></span>
         </div>
-        <h4 class="text-xs font-bold text-white mb-1">${p.title}</h4>
-        <p class="text-xs text-slate-300 mb-3">${p.note || ''}</p>
+        <h4 class="text-xs font-bold text-white mb-1">${escapeHtml(p.title)}</h4>
+        <p class="text-xs text-slate-300 mb-3 leading-relaxed">${escapeHtml(p.note || '')}</p>
         
         <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
-          <button onclick="focusPoint([${p.lat}, ${p.lng}], '${p.title}')" class="text-amber-400 hover:text-amber-300 font-medium flex items-center space-x-1">
-            <span>📍 Найти на карте</span>
+          <button onclick="focusPoint([${p.lat}, ${p.lng}], '${p.id}')" class="text-amber-400 hover:text-amber-300 font-medium flex items-center space-x-1">
+            <span>📍 На карте</span>
           </button>
-          <button onclick="likePoint('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold border border-amber-500/30 transition flex items-center space-x-1">
-            <span>👍 Хочу сюда!</span>
-            <span class="ml-1 font-bold">${p.likes || 0}</span>
-          </button>
+          <div class="flex items-center space-x-2">
+            <button onclick="likePoint('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold border border-amber-500/30 transition flex items-center space-x-1">
+              <span>👍 Хочу сюда!</span>
+              <span class="ml-1 font-bold">${p.likes || 0}</span>
+            </button>
+            <button onclick="deleteCommunityPoint('${p.id}')" class="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 transition" title="Удалить точку">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -537,6 +550,8 @@ async function likePoint(pointId) {
     saveCommunityPoints();
     renderCommunityMarkersOnMap();
     renderCommunityList();
+    showToast(`Вы проголосовали за «${p.title}»!`, 'success');
+
     // 1. Синхронизация с облачной базой Firebase Realtime Database
     if (firebaseDb) {
       try {
@@ -558,6 +573,35 @@ async function likePoint(pointId) {
       // Offline fallback
     }
   }
+}
+
+// Удаление точки
+async function deleteCommunityPoint(pointId) {
+  const p = communityPoints.find(item => item.id === pointId);
+  const title = p ? p.title : 'эту точку';
+  if (!confirm(`Вы уверены, что хотите удалить метку «${title}»?`)) {
+    return;
+  }
+
+  communityPoints = communityPoints.filter(item => item.id !== pointId);
+  saveCommunityPoints();
+  renderCommunityMarkersOnMap();
+  renderCommunityList();
+  showToast(`Метка «${title}» удалена`, 'info');
+
+  // Удаление из Firebase
+  if (firebaseDb) {
+    try {
+      firebaseDb.ref(`community_points/${pointId}`).remove();
+    } catch (e) {
+      console.warn('Firebase delete error:', e);
+    }
+  }
+
+  // Удаление с локального сервера server.py
+  try {
+    await fetch(`/api/points?id=${pointId}`, { method: 'DELETE' });
+  } catch (e) {}
 }
 
 // 7. Модальное окно добавления точки
@@ -629,7 +673,7 @@ async function submitNewPoint(event) {
   showToast(`Точка «${title}» успешно добавлена на карту!`, 'success');
 
   // Фокусировка на созданной точке
-  focusPoint([lat, lng], title);
+  focusPoint([lat, lng], newPoint.id);
 
   // 1. Синхронизация с облачной базой Firebase Realtime Database
   if (firebaseDb) {
@@ -654,8 +698,26 @@ async function submitNewPoint(event) {
 }
 
 // 8. Вспомогательные функции интерфейса
-function focusPoint(coords, name) {
-  map.setView(coords, 12, { animate: true });
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function focusPoint(coords, pointId) {
+  map.setView(coords, 13, { animate: true });
+  const target = communityMarkerLayers.find(m => m.pointId === pointId)
+    || markerLayers.find(m => m.marker && Math.abs(m.marker.getLatLng().lat - coords[0]) < 0.005 && Math.abs(m.marker.getLatLng().lng - coords[1]) < 0.005);
+  if (target) {
+    const marker = target.marker || target;
+    setTimeout(() => {
+      marker.openPopup();
+    }, 250);
+  }
 }
 
 function clearMapLayers() {
@@ -669,10 +731,12 @@ function updateStats() {
   const kmEl = document.getElementById('statTotalKm');
   const daysEl = document.getElementById('statTotalDays');
   const friendsEl = document.getElementById('statFriendsPins');
+  const badgeEl = document.getElementById('badgeFriendsCount');
 
   if (kmEl) kmEl.innerText = `${TRIP_DATA.meta.total_km} км`;
   if (daysEl) daysEl.innerText = `${TRIP_DATA.meta.duration_days} дней`;
   if (friendsEl) friendsEl.innerText = `${communityPoints.length}`;
+  if (badgeEl) badgeEl.innerText = `${communityPoints.length}`;
 }
 
 function showToast(message, type = 'info') {
