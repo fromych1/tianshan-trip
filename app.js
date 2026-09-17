@@ -778,6 +778,11 @@ function openAddPointModal(latlng = null) {
       modal.classList.remove('hidden');
     }
 
+    const authorInput = document.getElementById('pinAuthor');
+    if (authorInput && !authorInput.value) {
+      authorInput.value = getUserName();
+    }
+
     setTimeout(() => {
       const input = document.getElementById('pinTitle');
       if (input) input.focus();
@@ -799,13 +804,15 @@ async function submitNewPoint(event) {
   event.preventDefault();
 
   const title = document.getElementById('pinTitle').value.trim();
-  const author = document.getElementById('pinAuthor').value.trim() || 'Друг';
+  const author = document.getElementById('pinAuthor').value.trim() || getUserName() || 'Друг';
   const category = document.getElementById('pinCategory').value;
   const day = document.getElementById('pinDay').value;
   const note = document.getElementById('pinNote').value.trim();
 
   if (!title) {
-    alert('Пожалуйста, введите название точки!');
+    showToast('Пожалуйста, укажите название места!', 'warning');
+    const input = document.getElementById('pinTitle');
+    if (input) input.focus();
     return;
   }
 
